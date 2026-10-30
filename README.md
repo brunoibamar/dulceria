@@ -1,5 +1,11 @@
 # Dulcería 🍬
 
+## Editar o archivar clientes
+
+En Deudores, mantén presionado el **nombre de la cuenta durante dos segundos** para abrir sus opciones. También puedes tocar el botón **⋮**, disponible para teclado y pulsación normal. Mover el dedo o comenzar a desplazar la pantalla cancela la pulsación prolongada.
+
+Puedes editar nombre, teléfono y notas sin cambiar la identidad, saldo ni movimientos de la cuenta. Si ya no es cliente, usa **Archivar cliente**: desaparece de las cuentas activas y de la selección para nuevos cargos, pero conserva su deuda e historial. En el filtro **Archivados** puedes seguir registrando abonos, editarlo y **Reactivar cliente**. Los totales por cobrar siguen incluyendo sus saldos. No se borran cuentas ni deudas con esta operación.
+
 ## Alta de productos: paquetes y costos desconocidos
 
 En Inventario → Nuevo producto (también al editar) puedes elegir:
