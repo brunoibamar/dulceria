@@ -1,5 +1,19 @@
 # Dulcería 🍬
 
+## Alta de productos: paquetes y costos desconocidos
+
+En Inventario → Nuevo producto (también al editar) puedes elegir:
+
+- **Conozco el costo por pieza:** captura el costo unitario y el margen deseado sobre venta.
+- **Compré un paquete:** captura el importe del paquete y sus piezas. Se calcula costo por pieza redondeado a centavos y precio sugerido = costo / (1 − margen / 100), redondeado hacia arriba al centavo. Puedes usarlo o redondear hacia arriba al peso siguiente; el precio final siempre lo decides tú. Un paquete de $120 con 12 piezas da $10 de costo y $14.29 sugeridos con margen de 30 %, o $15 al redondear al peso. El margen real al vender a $15 es 33.3 % antes de gastos.
+- **Solo conozco mi precio de venta:** guarda el costo como desconocido. Opcionalmente activa la estimación y escribe un margen supuesto: costo estimado = precio × (1 − margen / 100). No reconstruye el costo real de compra.
+
+Las existencias son el total de unidades: el botón de piezas copia la cantidad del paquete a ese campo y no suma automáticamente una compra. Puedes ajustar el total antes de guardar. Al editar un producto existente, el costo unitario calculado queda disponible; no se conserva la presentación del paquete como una compra o lote independiente.
+
+La ganancia bruta con costo confirmado y la estimada aparecen separadas en Resumen. Las ventas sin costo se informan por su importe y no se consideran ganancia. El valor de inventario mostrado incluye solo productos con costo confirmado. Ventas anteriores conservan su costo y clasificación al vender. Los registros y respaldos anteriores sin clasificación mantienen sus costos como confirmados; el cero histórico no se reclasifica automáticamente.
+
+Se conserva IndexedDB y el formato de respaldo con campos opcionales de clasificación. Antes de actualizar, descarga una copia. Los respaldos con costo desconocido requieren esta versión o posterior al restaurar.
+
 Aplicación personal para una tienda pequeña. React + Vite + JavaScript y CSS. Calculadora protagonista, catálogo opcional, cuentas de deudores, abonos, existencias, costos, resumen y respaldos. Sin servidor de datos, cuentas de acceso ni servicios en la nube. Empieza vacía: no contiene datos de las capturas de referencia.
 
 ## Abrir en tu computadora
