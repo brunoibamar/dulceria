@@ -25,7 +25,10 @@ import { CashPayment, DirectCharge, PaymentForm } from './Payments';
 import HistoryList from './HistoryList';
 import Dashboard from './Dashboard';
 import Finance, { WithdrawalForm, BusinessMovementForm } from './Finance.jsx';
-import { recordWithdrawal, recordBusinessMovement } from './finance.js';
+import { recordWithdrawal, recordBusinessMovement, recordConsumption } from './finance.js';
+import Cashbox, { CashCountForm, CashAdjustmentForm } from './Cashbox.jsx';
+import { recordCashCount, recordCashAdjustment } from './cashbox.js';
+import ConsumptionForm from './ConsumptionForm';
 import Backup from './Backup';
 import ErrorBoundary from './ErrorBoundary';
 import './style.css';
@@ -36,6 +39,7 @@ const tabs = [
   ['inventario', '▦', 'Inventario'],
   ['dashboard', '▥', 'Resumen'],
   ['ganancias', '↗', 'Ganancias'],
+  ['caja', '▣', 'Caja'],
   ['respaldo', '↧', 'Respaldo'],
 ];
 const titleFor = (m) =>
@@ -52,6 +56,9 @@ const titleFor = (m) =>
     restock: 'Reponer mercancía',
     import: 'Restaurar respaldo',
     withdraw: 'Retirar para mi Economía',
+    consumption: 'Consumo personal de mercancía',
+    cashCount: 'Conteo de caja física',
+    cashAdjustment: 'Entrada o salida de efectivo',
     businessMovement:
       m.kind === 'reinvestment' ? 'Registrar uso de reinversión' : 'Registrar gasto del negocio',
   })[m.type];
@@ -191,7 +198,7 @@ function App() {
     setTarget('');
     setOperationId(uid());
   }
-  async function checkout(person = null, received = null) {
+  async function checkout(person = null, received = null, method = 'cash') {
     if (
       await commit(
         (d) =>
@@ -200,6 +207,7 @@ function App() {
             cart: catalog ? cart : [],
             person,
             received,
+            method,
             operationId,
             expectedTotal: total,
           }),
@@ -870,6 +878,7 @@ function App() {
 
         {tab === 'dashboard' && <Dashboard data={data} />}
         {tab === 'ganancias' && <Finance data={data} busy={busy} onOpen={openModal} />}
+        {tab === 'caja' && <Cashbox data={data} busy={busy} onOpen={openModal} />}
         {tab === 'respaldo' && (
           <Backup
             data={data}
@@ -891,7 +900,7 @@ function App() {
           />
         )}
         <footer>
-          Dulcería · v1.2<span>Hecho para tu día a día. ✦</span>
+          Dulcería · v1.3<span>Hecho para tu día a día. ✦</span>
         </footer>
       </main>
 
@@ -935,6 +944,68 @@ function App() {
                 abonar desde Archivados.
               </p>
             </>
+          ) : modal.type === 'consumption' ? (
+            <ConsumptionForm
+              data={data}
+              busy={busy}
+              onConfirm={async (fields) => {
+                if (
+                  await commit(
+                    (d) =>
+                      recordConsumption(d, {
+                        ...fields,
+                        id: modal.operationId,
+                        at: new Date().toISOString(),
+                      }),
+                    'Consumo registrado al costo de compra; piezas descontadas'
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === 'cashCount' ? (
+            <CashCountForm
+              data={data}
+              busy={busy}
+              onConfirm={async (fields) => {
+                if (
+                  await commit(
+                    (d) =>
+                      recordCashCount(d, {
+                        ...fields,
+                        id: modal.operationId,
+                        at: new Date().toISOString(),
+                      }),
+                    'Conteo físico guardado; ventas y ganancias sin cambios'
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === 'cashAdjustment' ? (
+            <CashAdjustmentForm
+              busy={busy}
+              onConfirm={async (fields) => {
+                try {
+                  const amount = cents(fields.amount);
+                  if (
+                    await commit(
+                      (d) =>
+                        recordCashAdjustment(d, {
+                          ...fields,
+                          amount,
+                          id: modal.operationId,
+                          at: new Date().toISOString(),
+                        }),
+                      'Movimiento de efectivo registrado'
+                    )
+                  )
+                    setModal(null);
+                } catch (e) {
+                  setError(e.message);
+                }
+              }}
+            />
           ) : modal.type === 'withdraw' ? (
             <WithdrawalForm
               data={data}
@@ -984,7 +1055,7 @@ function App() {
             <CashPayment
               total={total}
               busy={busy}
-              onConfirm={(received) => checkout(null, received)}
+              onConfirm={(received, method) => checkout(null, received, method)}
             />
           ) : modal.type === 'directCharge' ? (
             <DirectCharge
@@ -1005,8 +1076,10 @@ function App() {
               person={currentPerson}
               data={data}
               busy={busy}
-              onConfirm={async (amount) => {
-                if (await commit((d) => pay(d, currentPerson.id, amount), 'Abono registrado'))
+              onConfirm={async (amount, method) => {
+                if (
+                  await commit((d) => pay(d, currentPerson.id, amount, method), 'Abono registrado')
+                )
                   setModal(null);
               }}
             />

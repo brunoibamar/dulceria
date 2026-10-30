@@ -15,7 +15,17 @@ export default function Finance({ data, busy, onOpen }) {
     ...ledger.movements.map((m) => ({
       ...m,
       label: m.kind === 'expense' ? 'Gasto del negocio' : 'Uso de reinversión',
-      detail: '',
+      detail:
+        m.method === 'cash'
+          ? 'Pagado en efectivo'
+          : m.method === 'transfer'
+            ? 'Pagado por transferencia'
+            : 'Método histórico no registrado',
+    })),
+    ...(ledger.consumptions || []).map((c) => ({
+      ...c,
+      label: 'Consumo personal de mercancía',
+      detail: 'Descontado al costo; no sale efectivo',
     })),
   ].sort((a, b) => b.at.localeCompare(a.at));
   return (
@@ -81,6 +91,17 @@ export default function Finance({ data, busy, onOpen }) {
             <span>Ya retirado para ti</span>
             <b className="pink">{money(summary.withdrawn)}</b>
           </div>
+          <div className="row line">
+            <span>Mercancía consumida por ti (costo)</span>
+            <b>{money(summary.personalConsumption)}</b>
+          </div>
+          <button
+            className="outline full"
+            disabled={busy}
+            onClick={() => onOpen({ type: 'consumption', operationId: uid() })}
+          >
+            Registrar consumo personal de mercancía
+          </button>
           <button
             className="outline full"
             disabled={busy}
@@ -150,7 +171,17 @@ export default function Finance({ data, busy, onOpen }) {
               <span>⌄</span>
             </summary>
             <div className="receipt-body">
-              {entry.detail && <p>{entry.detail} · Pendiente de vincular con Economía</p>}
+              {entry.detail && (
+                <p>
+                  {entry.detail}
+                  {entry.source === 'dulceria' ? ' · Pendiente de vincular con Economía' : ''}
+                </p>
+              )}
+              {entry.items?.map((i) => (
+                <p key={i.product}>
+                  {i.name} × {i.qty} · costo {money(i.cost * i.qty)}
+                </p>
+              ))}
               {entry.note && <p>{entry.note}</p>}
               <small>Identificador: {entry.id}</small>
             </div>
@@ -237,7 +268,7 @@ export function BusinessMovementForm({ kind, busy, onConfirm }) {
       onSubmit={(e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.currentTarget));
-        onConfirm({ amount: f.amount, note: f.note });
+        onConfirm({ amount: f.amount, note: f.note, method: f.method });
       }}
     >
       <p>
@@ -257,6 +288,13 @@ export function BusinessMovementForm({ kind, busy, onConfirm }) {
           required
           placeholder={purchase ? 'Ej. Compra de cajas de dulces' : 'Ej. Transporte de mercancía'}
         />
+      </label>
+      <label>
+        ¿De dónde salió el dinero?
+        <select name="method">
+          <option value="cash">Efectivo de la caja</option>
+          <option value="transfer">Transferencia / cuenta bancaria</option>
+        </select>
       </label>
       <p className="hint">
         Revisa antes de confirmar: el movimiento queda en el historial. No modifica existencias. Las

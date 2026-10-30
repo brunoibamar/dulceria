@@ -3,6 +3,7 @@ import Calculator from './Calculator';
 import { balance, cashChange, cents, money, sum, uid } from './domain.js';
 export function CashPayment({ total, busy, onConfirm }) {
   const [received, setReceived] = useState((total / 100).toFixed(2));
+  const [method, setMethod] = useState('cash');
   let cash = null;
   try {
     cash = cashChange(total, received);
@@ -11,44 +12,61 @@ export function CashPayment({ total, busy, onConfirm }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (cash) onConfirm(cash.received);
+        if (method === 'transfer' || cash)
+          onConfirm(method === 'cash' ? cash.received : null, method);
       }}
     >
       <p>Total a cobrar</p>
       <h2 className="big mint">{money(total)}</h2>
       <label>
-        Efectivo recibido ($)
-        <input
-          type="number"
-          inputMode="decimal"
-          min={total / 100}
-          step="0.01"
-          required
-          value={received}
-          onChange={(e) => setReceived(e.target.value)}
-        />
+        Método de pago
+        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+          <option value="cash">Efectivo</option>
+          <option value="transfer">Transferencia</option>
+        </select>
       </label>
-      <div className="quick-amounts">
-        <button type="button" onClick={() => setReceived((total / 100).toFixed(2))}>
-          Exacto
-        </button>
-        {[20, 50, 100, 200, 500, 1000]
-          .filter((n) => n * 100 >= total)
-          .slice(0, 4)
-          .map((n) => (
-            <button type="button" key={n} onClick={() => setReceived(String(n))}>
-              ${n}
+      {method === 'cash' ? (
+        <>
+          <label>
+            Efectivo recibido ($)
+            <input
+              type="number"
+              inputMode="decimal"
+              min={total / 100}
+              step="0.01"
+              required
+              value={received}
+              onChange={(e) => setReceived(e.target.value)}
+            />
+          </label>
+          <div className="quick-amounts">
+            <button type="button" onClick={() => setReceived((total / 100).toFixed(2))}>
+              Exacto
             </button>
-          ))}
-      </div>
-      <div className="change" aria-live="polite">
-        <small>CAMBIO A ENTREGAR</small>
-        <strong>{cash ? money(cash.change) : 'El importe no alcanza'}</strong>
-      </div>
+            {[20, 50, 100, 200, 500, 1000]
+              .filter((n) => n * 100 >= total)
+              .slice(0, 4)
+              .map((n) => (
+                <button type="button" key={n} onClick={() => setReceived(String(n))}>
+                  ${n}
+                </button>
+              ))}
+          </div>
+          <div className="change" aria-live="polite">
+            <small>CAMBIO A ENTREGAR</small>
+            <strong>{cash ? money(cash.change) : 'El importe no alcanza'}</strong>
+          </div>
+        </>
+      ) : (
+        <p className="warning">
+          Confirma que recibiste la transferencia en tu cuenta. No entra dinero a la caja física ni
+          hay cambio.
+        </p>
+      )}
       <p className="hint">
         Confirma solo cuando recibas el dinero. Es un registro manual, no un cobro con tarjeta.
       </p>
-      <button type="submit" className="green full" disabled={busy || !cash}>
+      <button type="submit" className="green full" disabled={busy || (method === 'cash' && !cash)}>
         {busy ? 'Guardando…' : 'Confirmar cobro'}
       </button>
     </form>
@@ -81,6 +99,7 @@ export function DirectCharge({ person, busy, onConfirm }) {
 export function PaymentForm({ person, data, busy, onConfirm }) {
   const owed = balance(data, person.id),
     [value, setValue] = useState('');
+  const [method, setMethod] = useState('cash');
   let parsed = 0;
   try {
     parsed = cents(value);
@@ -89,12 +108,19 @@ export function PaymentForm({ person, data, busy, onConfirm }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (parsed > 0 && parsed <= owed) onConfirm(parsed);
+        if (parsed > 0 && parsed <= owed) onConfirm(parsed, method);
       }}
     >
       <p>{person.name}</p>
       <small>SALDO PENDIENTE</small>
       <h2 className="big pink">{money(owed)}</h2>
+      <label>
+        Método del abono
+        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+          <option value="cash">Efectivo</option>
+          <option value="transfer">Transferencia</option>
+        </select>
+      </label>
       <label>
         Importe del abono ($)
         <input

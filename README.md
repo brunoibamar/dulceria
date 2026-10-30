@@ -1,4 +1,20 @@
-# Dulcería 🍬 · v1.2
+# Dulcería 🍬 · v1.3
+
+## Consumo personal, medios de pago y caja física
+
+En **Ganancias → Registrar consumo personal de mercancía**, elige producto y piezas. Se descuentan del inventario y se registra el costo de compra conservado en ese momento, no el precio de venta. Ese costo reduce el disponible para retirar; si no alcanza, queda un importe por recuperar con ganancias posteriores. No se registra como venta, no sale efectivo de la caja y no se envía como ingreso a Economía. Se requiere un costo de compra confirmado mayor a cero y stock suficiente. No registres el mismo consumo también como gasto o salida de caja.
+
+Ventas de contado y abonos permiten elegir **Efectivo** o **Transferencia**. El efectivo usa el cálculo de cambio; la transferencia requiere que tú confirmes su recepción y no genera cambio ni efectivo en caja. Los gastos y compras también indican si se pagaron con efectivo o desde la cuenta. Un retiro para ti en efectivo se descuenta de caja; uno destinado a tarjeta afecta el neto de transferencias registrado. Recibir una transferencia no convierte toda esa venta en ganancia personal: su costo sigue reservado para el negocio.
+
+En **Caja**, el primer conteo guarda el efectivo real como base inicial. Después se calcula: último efectivo contado + ventas y abonos en efectivo − gastos/compras/retiros en efectivo + entradas manuales − salidas manuales. No se usa el efectivo recibido antes del cambio: se registra solo el importe neto de la venta.
+
+Puedes escribir el total o contar billetes y monedas (MXN, desde $0.50 hasta $1,000). Se conserva cuánto se esperaba, cuánto contaste y el faltante o sobrante. **Un conteo no modifica ventas, ganancias ni genera gastos automáticamente.** El efectivo que contaste pasa a ser la base del siguiente conteo, manteniendo la diferencia anterior visible en el historial.
+
+Los cobros antiguos sin método no se adivinan como efectivo. Si hay movimientos sin clasificar desde la base, la comparación se marca incompleta y no se presenta una diferencia como comprobada. El primer conteo permite empezar con tus cantidades actuales sin rehacer todo el historial. Los cobros anteriores que incluyen efectivo recibido y cambio sí se reconocen como efectivo.
+
+Las entradas y salidas manuales de Caja son para fondo de cambio, depósitos u otros movimientos que no sean ventas ni gastos. No repitas allí los movimientos ya registrados en Ganancias. El neto de transferencias mostrado no es un saldo bancario real: no tiene saldo inicial ni los demás movimientos de tu banco.
+
+Respaldo JSON incluye `finance.consumptions` y el campo opcional `cashbox` con sus conteos y movimientos. Se mantiene el esquema 1 y compatibilidad con copias anteriores. La futura conexión con Economía sigue exportando únicamente retiros personales, no ventas, consumos, conteos o diferencias.
 
 ## Ganancias, reinversión y retiros para Economía
 

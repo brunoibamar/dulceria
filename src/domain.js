@@ -1,4 +1,5 @@
 import { validateFinance } from './finance.js';
+import { validateCashbox } from './cashbox.js';
 // Amounts are integer centavos. Existing schema-1 data remains compatible.
 export const MAX_AMOUNT = 10_000_000_000;
 const integer = (n) => Number.isSafeInteger(n) && n >= 0;
@@ -150,6 +151,7 @@ export function sell(
     received = null,
     operationId = null,
     expectedTotal = null,
+    method = 'cash',
   }
 ) {
   if (operationId && d.sales.some((s) => s.id === operationId))
@@ -178,7 +180,9 @@ export function sell(
       'Cambió un precio durante la venta. Revisa el total actualizado antes de confirmar.'
     );
   let cash = {};
-  if (received !== null && !person) cash = cashChange(total, String(received / 100));
+  if (!['cash', 'transfer'].includes(method)) throw Error('Elige efectivo o transferencia.');
+  if (received !== null && !person && method === 'cash')
+    cash = cashChange(total, String(received / 100));
   const at = new Date().toISOString();
   for (const i of items) {
     d.products.find((p) => p.id === i.product).stock -= i.qty;
@@ -189,17 +193,19 @@ export function sell(
     at,
     total,
     person,
+    method: person ? null : method,
     items,
     note: items.length ? 'Catálogo' : expression,
     ...cash,
   });
   return d;
 }
-export function pay(d, id, value) {
+export function pay(d, id, value, method = 'cash') {
   person(d, id);
   if (!amount(value) || value <= 0 || value > balance(d, id))
     throw Error('El abono debe ser mayor a cero y no superar el saldo.');
-  d.payments.push({ id: uid(), person: id, amount: value, at: new Date().toISOString() });
+  if (!['cash', 'transfer'].includes(method)) throw Error('Elige efectivo o transferencia.');
+  d.payments.push({ id: uid(), person: id, amount: value, method, at: new Date().toISOString() });
   return d;
 }
 export function validate(d) {
@@ -236,6 +242,13 @@ export function validate(d) {
   const balances = new Map(d.people.map((p) => [p.id, 0]));
   for (const s of d.sales) {
     if (
+      s.method !== undefined &&
+      !(s.person ? s.method === null : ['cash', 'transfer'].includes(s.method))
+    )
+      throw Error('Método de cobro inválido.');
+    if (s.method === 'transfer' && s.received !== undefined)
+      throw Error('Una transferencia no tiene efectivo recibido.');
+    if (
       !amount(s.total) ||
       !s.total ||
       !dated(s) ||
@@ -264,6 +277,8 @@ export function validate(d) {
     if (s.person) balances.set(s.person, balances.get(s.person) + s.total);
   }
   for (const p of d.payments) {
+    if (p.method !== undefined && !['cash', 'transfer'].includes(p.method))
+      throw Error('Método de abono inválido.');
     if (!amount(p.amount) || !p.amount || !people.has(p.person) || !dated(p))
       throw Error('Abono inválido.');
     balances.set(p.person, balances.get(p.person) - p.amount);
@@ -279,5 +294,6 @@ export function validate(d) {
     )
       throw Error('Movimiento inválido.');
   validateFinance(d, ids);
+  validateCashbox(d, ids);
   return d;
 }

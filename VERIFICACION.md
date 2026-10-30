@@ -1,4 +1,9 @@
-# Verificación · Dulcería 1.2
+# Verificación · Dulcería 1.3
+
+- 29 pruebas automáticas, incluidas cinco de consumo y caja: costo frente a precio de venta, reducción de stock, costos no confirmados rechazados, separación efectivo/transferencia/fiado, abonos, gastos y retiros por método, diferencias de conteo, base inicial, datos históricos y respaldos.
+- Navegador en origen local de prueba: base física $100, venta por transferencia $15 → efectivo esperado $100 y transferencias $15. Conteo $99 → faltante $1 conservado.
+- Producto ficticio de 10 piezas, costo $10 y venta $15: consumo personal de 2 piezas → costo $20 y 8 piezas restantes, sin generar venta ni movimiento de efectivo.
+- Compilación de producción correcta. No se modificaron registros reales ni se creó Economía.
 
 Nueva revisión de ganancias:
 

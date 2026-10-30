@@ -48,9 +48,10 @@ export function businessSummary(data) {
       .filter((m) => m.kind === 'reinvestment')
       .reduce((n, m) => n + m.amount, 0),
     withdrawn = ledger.withdrawals.reduce((n, w) => n + w.amount, 0);
-  const reserve = collected - collectedProfit,
+  const personalConsumption = (ledger.consumptions || []).reduce((n, c) => n + c.amount, 0);
+  const reserve = collected - collectedProfit + personalConsumption,
     reserveShortfall = Math.max(0, reinvested - reserve);
-  const net = collectedProfit - expenses - withdrawn - reserveShortfall;
+  const net = collectedProfit - expenses - withdrawn - reserveShortfall - personalConsumption;
   return {
     gross,
     collected,
@@ -59,7 +60,11 @@ export function businessSummary(data) {
     expenses,
     reinvested,
     withdrawn,
-    reserve: Math.max(0, reserve - reinvested),
+    personalConsumption,
+    reserve: Math.max(
+      0,
+      Math.min(collected - expenses - reinvested - withdrawn, reserve - reinvested)
+    ),
     reserveShortfall,
     available: Math.max(0, net),
     shortfall: Math.max(0, -net),
@@ -88,7 +93,7 @@ export function recordWithdrawal(data, { id, at, amount, destination, note = '' 
   });
   return data;
 }
-export function recordBusinessMovement(data, { id, at, amount, kind, note }) {
+export function recordBusinessMovement(data, { id, at, amount, kind, note, method = 'cash' }) {
   if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 10_000_000_000)
     throw Error('Indica un importe mayor a cero.');
   if (!['expense', 'reinvestment'].includes(kind) || !note.trim())
@@ -96,7 +101,8 @@ export function recordBusinessMovement(data, { id, at, amount, kind, note }) {
   const ledger = financeData(data);
   if (ledger.movements.some((m) => m.id === id)) throw Error('Este movimiento ya está registrado.');
   data.finance = ledger;
-  ledger.movements.push({ id, at, amount, kind, note: note.trim().slice(0, 500) });
+  if (!['cash', 'transfer'].includes(method)) throw Error('Elige de dónde salió el dinero.');
+  ledger.movements.push({ id, at, amount, kind, method, note: note.trim().slice(0, 500) });
   return data;
 }
 export function validateFinance(data, usedIds) {
@@ -104,7 +110,9 @@ export function validateFinance(data, usedIds) {
   const f = data.finance;
   if (!f || f.version !== 1 || !Array.isArray(f.withdrawals) || !Array.isArray(f.movements))
     throw Error('Registro de ganancias incompatible.');
-  for (const entry of [...f.withdrawals, ...f.movements]) {
+  if (f.consumptions !== undefined && !Array.isArray(f.consumptions))
+    throw Error('Consumos inválidos.');
+  for (const entry of [...f.withdrawals, ...f.movements, ...(f.consumptions || [])]) {
     if (
       !entry ||
       typeof entry.id !== 'string' ||
@@ -129,8 +137,60 @@ export function validateFinance(data, usedIds) {
     )
       throw Error('Retiro para Economía inválido.');
   for (const m of f.movements)
-    if (!['expense', 'reinvestment'].includes(m.kind) || !m.note.trim())
+    if (
+      !['expense', 'reinvestment'].includes(m.kind) ||
+      !m.note.trim() ||
+      (m.method !== undefined && !['cash', 'transfer'].includes(m.method))
+    )
       throw Error('Gasto o reinversión inválidos.');
+  for (const c of f.consumptions || [])
+    if (
+      !Array.isArray(c.items) ||
+      !c.items.length ||
+      c.items.some(
+        (i) =>
+          !data.products.some((p) => p.id === i.product) ||
+          typeof i.name !== 'string' ||
+          !Number.isSafeInteger(i.qty) ||
+          i.qty < 1 ||
+          !Number.isSafeInteger(i.cost) ||
+          i.cost < 0
+      ) ||
+      c.items.reduce((n, i) => n + i.cost * i.qty, 0) !== c.amount
+    )
+      throw Error('Consumo personal inválido.');
+}
+export function recordConsumption(data, { id, at, cart, note = '' }) {
+  const ledger = financeData(data);
+  if ((ledger.consumptions || []).some((c) => c.id === id))
+    throw Error('Este consumo ya está registrado.');
+  if (!cart.length || new Set(cart.map((i) => i.product)).size !== cart.length)
+    throw Error('Selecciona productos para tu consumo.');
+  const items = cart.map((i) => {
+    const p = data.products.find((p) => p.id === i.product);
+    if (!p || p.archived || !Number.isSafeInteger(i.qty) || i.qty < 1 || i.qty > p.stock)
+      throw Error('Revisa las unidades disponibles.');
+    if (!real(p) || p.cost === null)
+      throw Error('Confirma el costo de compra antes de registrar el consumo.');
+    return { product: p.id, name: p.name, qty: i.qty, cost: p.cost };
+  });
+  const amount = items.reduce((n, i) => n + i.cost * i.qty, 0);
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > 1e10)
+    throw Error('El consumo debe tener un costo de compra confirmado mayor a cero.');
+  for (const i of items) {
+    data.products.find((p) => p.id === i.product).stock -= i.qty;
+    data.stock.push({
+      id: `consumption:${id}:${i.product}`,
+      at,
+      product: i.product,
+      delta: -i.qty,
+      note: 'Consumo personal',
+    });
+  }
+  ledger.consumptions ||= [];
+  ledger.consumptions.push({ id, at, amount, items, note: note.trim().slice(0, 500) });
+  data.finance = ledger;
+  return data;
 }
 // Future Economy app deduplicates by this stable entry id, including after backup restores.
 export function economyFeed(data) {

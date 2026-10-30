@@ -21,6 +21,15 @@ export default function HistoryList({ entries, products, limit = 20 }) {
             <span aria-hidden="true">⌄</span>
           </summary>
           <div className="receipt-body">
+            <p>
+              {s.kind === 'Cargo'
+                ? 'Venta fiada'
+                : s.method === 'transfer'
+                  ? 'Pago por transferencia'
+                  : s.method === 'cash' || s.received !== undefined
+                    ? 'Pago en efectivo'
+                    : 'Método no registrado (histórico)'}
+            </p>
             {s.items?.length
               ? s.items.map((i) => (
                   <div className="row line" key={i.product}>

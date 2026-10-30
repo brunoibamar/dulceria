@@ -883,6 +883,17 @@ footer span {
 .finance-method p {
   font-size: 12px;
 }
+.denominations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+.denominations label {
+  margin: 6px 0;
+}
+.denominations input {
+  margin-top: 4px;
+}
 .finance-method {
   margin: 22px 0;
 }

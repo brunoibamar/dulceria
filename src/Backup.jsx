@@ -31,8 +31,8 @@ export default function Backup({
         <h2>Tus datos, contigo</h2>
         <p>
           Genera una copia fuera del navegador al cerrar cada jornada. Incluye productos, cuentas,
-          ventas, abonos, movimientos de inventario y los retiros, gastos y reinversiones
-          registrados.
+          ventas, abonos, inventario, retiros, gastos, reinversiones, consumos personales y conteos
+          de caja.
         </p>
         <button className="primary full" disabled={busy} onClick={() => onExport(data)}>
           Descargar respaldo JSON
