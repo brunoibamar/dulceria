@@ -5,7 +5,7 @@
 - Cuatro pruebas automáticas correctas: sumas y decimales sin eval; fiado y abonos hasta saldo cero; existencias y conservación del costo histórico; validación de respaldos y referencias.
 - El paquete incluye fuente, workflow de GitHub Pages, iconos, instrucciones y dist compilado. No incluye node_modules ni datos personales.
 - Revisión visual de las siete imágenes: fondo oscuro, tarjetas redondeadas, acentos rosas/morados y cobros/abonos verdes incorporados al diseño responsive.
-- No fue posible completar pruebas interactivas en el navegador del entorno: la conexión a los puertos de vista previa expiró. No se ha verificado en un teléfono Android real ni desplegado a GitHub Pages.
+- Vista previa local comprobada en el navegador integrado: interfaz visible y suma 5+5+2+2 = $14. No se ha verificado en un teléfono Android real ni desplegado a GitHub Pages.
 
 ## Comprobación recomendada al instalar
 
@@ -16,3 +16,4 @@
 5. Exporta JSON, ábrelo para comprobar que contiene registros y restáuralo en otro navegador vacío.
 6. Instala desde HTTPS, abre desde el icono con internet y después en modo avión. Registra otra operación, cierra y vuelve a abrir.
 7. Antes de usar datos reales, conserva o restaura una copia vacía para evitar mezclar pruebas y operaciones del negocio. No hay borrado de operaciones en este MVP.
+

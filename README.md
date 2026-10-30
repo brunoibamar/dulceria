@@ -11,7 +11,7 @@ Aplicación personal para una tienda pequeña. React + Vite + JavaScript y CSS. 
 
 No abras index.html con doble clic: necesita el servidor de desarrollo o el contenido compilado servido por HTTP.
 
-Para verificar: `npm test` y `npm run build`. Para probar la versión compilada: `npm run preview`. El resultado se genera en `dist/`. También se incluye la compilación preparada en este paquete. No necesitas subir node_modules a GitHub. El archivo pnpm-lock.yaml fija las versiones utilizadas en el despliegue; si cambias dependencias, actualiza ese archivo con pnpm 11.25.0.
+Para verificar: `npm test` y `npm run build`. Para probar la versión compilada: `npm run preview`. El resultado se genera en `dist/`. El ZIP de entrega incluye la compilación preparada; en GitHub, dist se genera al compilar. No necesitas subir node_modules a GitHub. El archivo pnpm-lock.yaml fija las versiones utilizadas en el despliegue; si cambias dependencias, actualiza ese archivo con pnpm 11.25.0.
 
 ## Publicar en GitHub Pages
 
@@ -22,7 +22,7 @@ Para verificar: `npm test` y `npm run build`. Para probar la versión compilada:
 5. En Actions, abre «Publicar Dulcería» y espera a que termine. Puedes ejecutarlo manualmente con Run workflow.
 6. Abre la URL que devuelve el despliegue, normalmente `https://TU-USUARIO.github.io/dulceria/`.
 
-La configuración usa rutas relativas para admitir repositorios y dominios raíz sin editar el nombre del repositorio. La navegación interna no cambia la ruta, por lo que recargar una sección no produce un error 404. No se ha creado ni publicado un repositorio por ti.
+La configuración usa rutas relativas para admitir repositorios y dominios raíz sin editar el nombre del repositorio. La navegación interna no cambia la ruta, por lo que recargar una sección no produce un error 404. Repositorio del proyecto: https://github.com/brunoibamar/dulceria (privado). Ramas iniciales: main y movil-refactor. GitHub Pages no está activado; su disponibilidad para un repositorio privado depende del plan de la cuenta.
 
 El workflow instala, prueba, compila y publica únicamente `dist`. También puedes alojar esa carpeta en cualquier servidor estático. Referencias: [Vite / GitHub Pages](https://vite.dev/guide/static-deploy#github-pages) y [workflows de Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
@@ -66,3 +66,4 @@ MVP sin devoluciones, cancelaciones, gastos, borrado de operaciones, impresión 
 - `.github/workflows/pages.yml`: publicación automática.
 
 Para una actualización, exporta tus datos primero y conserva el nombre de la base y el esquema. Los archivos de caché se actualizan sin borrar IndexedDB.
+
