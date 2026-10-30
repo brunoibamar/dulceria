@@ -22,7 +22,7 @@ Para verificar: `npm test` y `npm run build`. Para probar la versión compilada:
 5. En Actions, abre «Publicar Dulcería» y espera a que termine. Puedes ejecutarlo manualmente con Run workflow.
 6. Abre la URL que devuelve el despliegue, normalmente `https://TU-USUARIO.github.io/dulceria/`.
 
-La configuración usa rutas relativas para admitir repositorios y dominios raíz sin editar el nombre del repositorio. La navegación interna no cambia la ruta, por lo que recargar una sección no produce un error 404. Repositorio del proyecto: https://github.com/brunoibamar/dulceria (privado). Ramas iniciales: main y movil-refactor. GitHub Pages no está activado; su disponibilidad para un repositorio privado depende del plan de la cuenta.
+La configuración usa rutas relativas para admitir repositorios y dominios raíz sin editar el nombre del repositorio. La navegación interna no cambia la ruta, por lo que recargar una sección no produce un error 404. Repositorio público: https://github.com/brunoibamar/dulceria. Ramas: main y movil-refactor. Publicación en GitHub Pages mediante Actions desde main: https://brunoibamar.github.io/dulceria/.
 
 El workflow instala, prueba, compila y publica únicamente `dist`. También puedes alojar esa carpeta en cualquier servidor estático. Referencias: [Vite / GitHub Pages](https://vite.dev/guide/static-deploy#github-pages) y [workflows de Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
@@ -66,4 +66,5 @@ MVP sin devoluciones, cancelaciones, gastos, borrado de operaciones, impresión 
 - `.github/workflows/pages.yml`: publicación automática.
 
 Para una actualización, exporta tus datos primero y conserva el nombre de la base y el esquema. Los archivos de caché se actualizan sin borrar IndexedDB.
+
 
