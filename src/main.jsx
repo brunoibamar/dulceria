@@ -1,104 +1,1137 @@
-import React,{useEffect,useState} from 'react';
-
-import {createRoot} from 'react-dom/client';
-
-import {useRegisterSW} from 'virtual:pwa-register/react';
-
-import {transact} from './db';
-
-import {balance,cents,money,sum,sell,pay,validate,uid,editPerson,archivePerson} from './domain';
-
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { useRegisterSW } from 'virtual:pwa-register/react';
+import { transact } from './db.js';
+import {
+  archivePerson,
+  cents,
+  editPerson,
+  money,
+  pay,
+  saveProduct,
+  sell,
+  sum,
+  uid,
+  restock,
+} from './domain.js';
+import { costKind, pricing } from './pricing.js';
+import { historyOf, inPeriod, low, matches } from './analytics.js';
+import { readDraft, readLocal, writeLocal } from './local.js';
+import ProductFields from './ProductFields';
+import PersonButton from './PersonButton';
+import Calculator from './Calculator';
+import Modal from './Modal';
+import { CashPayment, DirectCharge, PaymentForm } from './Payments';
+import HistoryList from './HistoryList';
+import Dashboard from './Dashboard';
+import Backup from './Backup';
+import ErrorBoundary from './ErrorBoundary';
 import './style.css';
 
-import ProductFields from './ProductFields';
+const tabs = [
+  ['venta', '＋', 'Nueva venta'],
+  ['deudores', '♧', 'Deudores'],
+  ['inventario', '▦', 'Inventario'],
+  ['dashboard', '▥', 'Resumen'],
+  ['respaldo', '↧', 'Respaldo'],
+];
+const titleFor = (m) =>
+  ({
+    person: 'Nueva persona',
+    editPerson: 'Editar persona',
+    personOptions: m.person?.name,
+    product: m.product ? 'Editar producto' : 'Nuevo producto',
+    pay: 'Registrar abono',
+    charge: 'Agregar a una cuenta',
+    directCharge: `Nuevo cargo · ${m.person?.name}`,
+    cash: 'Cobrar venta',
+    history: m.person?.name,
+    restock: 'Reponer mercancía',
+    import: 'Restaurar respaldo',
+  })[m.type];
 
-import PersonButton from './PersonButton';
+function App() {
+  const [initial] = useState(readDraft);
+  const [data, setData] = useState(null),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState('');
+  const [tab, setTab] = useState(() => {
+    const v = readLocal('tab', 'venta');
+    return tabs.some((t) => t[0] === v) ? v : 'venta';
+  });
+  const [expr, setExpr] = useState(initial.expression),
+    [cart, setCart] = useState(initial.cart),
+    [catalog, setCatalog] = useState(initial.catalog),
+    [target, setTarget] = useState(initial.target),
+    [operationId, setOperationId] = useState(initial.operationId || uid());
+  const [modal, setModal] = useState(null),
+    [busy, setBusy] = useState(false),
+    [search, setSearch] = useState(''),
+    [filter, setFilter] = useState('todos'),
+    [inventoryFilter, setInventoryFilter] = useState('all'),
+    [sort, setSort] = useState('name'),
+    [catalogSearch, setCatalogSearch] = useState('');
+  const [install, setInstall] = useState(null),
+    [online, setOnline] = useState(navigator.onLine),
+    [lastExport, setLastExport] = useState(() => readLocal('lastExport', null)),
+    [clock, setClock] = useState(Date.now());
+  const saving = useRef(false),
+    channel = useRef(null),
+    draftWarning = useRef(false);
+  const {
+    needRefresh: [refresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisterError: () =>
+      setNotice(
+        'El modo sin conexión no se pudo preparar. La app sigue disponible mientras tengas conexión.'
+      ),
+  });
 
-import {costKind,pricing,profits} from './pricing';
+  async function reload() {
+    try {
+      setData(await transact());
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  useEffect(() => {
+    reload();
+    try {
+      channel.current = new BroadcastChannel('dulceria-changes');
+      channel.current.onmessage = reload;
+    } catch {}
+    const focus = () => {
+        reload();
+        setClock(Date.now());
+      },
+      network = () => setOnline(navigator.onLine),
+      before = (e) => {
+        e.preventDefault();
+        setInstall(e);
+      };
+    window.addEventListener('focus', focus);
+    window.addEventListener('online', network);
+    window.addEventListener('offline', network);
+    window.addEventListener('beforeinstallprompt', before);
+    const ticker = setInterval(() => setClock(Date.now()), 60000);
+    return () => {
+      channel.current?.close();
+      clearInterval(ticker);
+      window.removeEventListener('focus', focus);
+      window.removeEventListener('online', network);
+      window.removeEventListener('offline', network);
+      window.removeEventListener('beforeinstallprompt', before);
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      !writeLocal('draft', { expression: expr, cart, catalog, target, operationId }) &&
+      !draftWarning.current
+    ) {
+      draftWarning.current = true;
+      setNotice('No se pudo guardar el borrador de venta. Evita recargar antes de terminarla.');
+    }
+  }, [expr, cart, catalog, target, operationId]);
+  useEffect(() => {
+    writeLocal('tab', tab);
+  }, [tab]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 7000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  useEffect(() => {
+    setError('');
+  }, [modal?.type, modal?.person?.id, modal?.product?.id]);
+  const balances = useMemo(() => {
+    const map = new Map(data?.people.map((p) => [p.id, 0]));
+    for (const s of data?.sales || [])
+      if (s.person) map.set(s.person, (map.get(s.person) || 0) + s.total);
+    for (const p of data?.payments || []) map.set(p.person, (map.get(p.person) || 0) - p.amount);
+    return map;
+  }, [data]);
+  const history = useMemo(() => (data ? historyOf(data) : []), [data]);
+  useEffect(() => {
+    if (data?.sales.some((s) => s.id === operationId)) resetDraft();
+  }, [data, operationId]);
+  const debt = (id) => balances.get(id) || 0;
 
-const tabs=[['venta','＋','Nueva venta'],['deudores','♧','Deudores'],['inventario','▦','Inventario'],['dashboard','▥','Resumen'],['respaldo','↧','Respaldo']];
+  async function commit(change, message, options) {
+    if (saving.current) return false;
+    saving.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const next = await transact(change, options);
+      setData(next);
+      setClock(Date.now());
+      try {
+        channel.current?.postMessage('changed');
+      } catch {}
+      setNotice(message);
+      return true;
+    } catch (e) {
+      setError(e.message);
+      return false;
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
+  }
+  function resetDraft() {
+    setExpr('');
+    setCart([]);
+    setTarget('');
+    setOperationId(uid());
+  }
+  async function checkout(person = null, received = null) {
+    if (
+      await commit(
+        (d) =>
+          sell(d, {
+            expression: expr,
+            cart: catalog ? cart : [],
+            person,
+            received,
+            operationId,
+            expectedTotal: total,
+          }),
+        person ? 'Cargo agregado a la cuenta' : 'Venta cobrada y guardada'
+      )
+    ) {
+      resetDraft();
+      setModal(null);
+    }
+  }
+  function openModal(value) {
+    setError('');
+    setModal(value);
+  }
+  function go(id) {
+    setTab(id);
+    setSearch('');
+    setError('');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function adjust(product, delta) {
+    setCart((previous) => {
+      const item = previous.find((c) => c.product === product.id),
+        qty = (item?.qty || 0) + delta;
+      if (qty > product.stock) {
+        setNotice('No quedan más unidades disponibles.');
+        return previous;
+      }
+      if (qty <= 0) return previous.filter((c) => c.product !== product.id);
+      return item
+        ? previous.map((c) => (c.product === product.id ? { ...c, qty } : c))
+        : [...previous, { product: product.id, qty }];
+    });
+  }
+  function exportBackup(backup = data) {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify({ ...backup, exportedAt: new Date().toISOString() }, null, 2)], {
+        type: 'application/json',
+      })
+    );
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `dulceria-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    const at = new Date().toISOString();
+    setLastExport(at);
+    writeLocal('lastExport', at);
+    setNotice('Archivo generado. Comprueba que se guardó en Descargas.');
+  }
+  async function submit(e) {
+    e.preventDefault();
+    if (saving.current) return;
+    const f = Object.fromEntries(new FormData(e.currentTarget));
+    try {
+      if (modal.type === 'person') {
+        if (
+          await commit((d) => {
+            d.people.push({
+              id: uid(),
+              name: f.name.trim(),
+              phone: f.phone.trim(),
+              notes: f.notes.trim(),
+            });
+            return d;
+          }, 'Persona agregada')
+        )
+          setModal(null);
+      }
+      if (
+        modal.type === 'editPerson' &&
+        (await commit((d) => editPerson(d, modal.person.id, f), 'Datos de la cuenta actualizados'))
+      )
+        setModal(null);
+      if (modal.type === 'product') {
+        const { cost, costStatus } = pricing({
+          mode: f.costMode,
+          unit: f.unit,
+          pack: f.pack,
+          pieces: f.pieces,
+          price: f.price,
+          margin: f.margin ?? '30',
+          estimate: f.estimate === 'on',
+        });
+        if (
+          await commit(
+            (d) =>
+              saveProduct(
+                d,
+                {
+                  name: f.name,
+                  price: cents(f.price),
+                  cost,
+                  costStatus,
+                  stock: Number(f.stock),
+                  lowStock: Number(f.lowStock),
+                  expectedStock: modal.product?.stock,
+                },
+                modal.product?.id
+              ),
+            'Producto guardado'
+          )
+        )
+          setModal(null);
+      }
+      if (
+        modal.type === 'restock' &&
+        (await commit(
+          (d) => restock(d, modal.product.id, Number(f.quantity), f.note),
+          'Mercancía repuesta'
+        ))
+      )
+        setModal(null);
+      if (modal.type === 'charge') await checkout(f.person);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
-const date=s=>new Date(s).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});
+  if (!data)
+    return (
+      <main className="startup">
+        <span className="logo">◈</span>
+        <h1>Dulcería</h1>
+        {error ? (
+          <>
+            <p role="alert">{error}</p>
+            <button className="primary" onClick={reload}>
+              Volver a intentar
+            </button>
+            <p className="hint">
+              No borres los datos del navegador para intentar resolverlo: ahí están tus registros.
+            </p>
+          </>
+        ) : (
+          <p>Abriendo tus cuentas…</p>
+        )}
+      </main>
+    );
+  const activeProducts = data.products.filter((p) => !p.archived),
+    activePeople = data.people.filter((p) => !p.archived),
+    shortages = activeProducts.filter(low);
+  const debts = [...balances.values()].reduce((n, v) => n + v, 0),
+    now = new Date(clock),
+    todays = data.sales.filter((s) => inPeriod(s.at, 'today', now));
+  const people = data.people
+    .filter(
+      (p) =>
+        matches(`${p.name} ${p.phone}`, search) &&
+        (filter === 'archivados' ? p.archived : !p.archived) &&
+        (filter === 'deben' ? debt(p.id) > 0 : filter === 'corriente' ? debt(p.id) === 0 : true)
+    )
+    .sort((a, b) => debt(b.id) - debt(a.id) || a.name.localeCompare(b.name, 'es'));
+  const products = data.products
+    .filter(
+      (p) =>
+        matches(p.name, search) &&
+        (inventoryFilter === 'archived' ? p.archived : !p.archived) &&
+        (inventoryFilter === 'low' ? low(p) : inventoryFilter === 'empty' ? p.stock === 0 : true)
+    )
+    .sort((a, b) => (sort === 'stock' ? a.stock - b.stock : a.name.localeCompare(b.name, 'es')));
+  let total = 0,
+    invalid = false;
+  try {
+    total = catalog
+      ? cart.reduce(
+          (n, c) => n + (data.products.find((p) => p.id === c.product)?.price || 0) * c.qty,
+          0
+        )
+      : sum(expr);
+  } catch {
+    invalid = true;
+  }
+  const staleCart =
+    catalog &&
+    cart.some((c) => {
+      const p = data.products.find((p) => p.id === c.product);
+      return !p || p.archived || c.qty > p.stock;
+    });
+  const backupDue =
+    Boolean(data.sales.length || data.products.length || data.people.length) &&
+    (!lastExport || Date.now() - new Date(lastExport).getTime() > 86400000);
+  const currentPerson = modal?.person
+    ? data.people.find((p) => p.id === modal.person.id) || modal.person
+    : null;
 
-function App(){
+  return (
+    <div className="app">
+      <aside>
+        <a
+          className="brand"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            go('venta');
+          }}
+        >
+          <span className="logo">◈</span>
+          <span>
+            Dulcería<small>UN POQUITO DE DULZURA</small>
+          </span>
+        </a>
+        <p className="navlabel">TU NEGOCIO</p>
+        <nav aria-label="Secciones de Dulcería">
+          {tabs.map(([id, icon, label]) => (
+            <button
+              key={id}
+              aria-current={tab === id ? 'page' : undefined}
+              className={tab === id ? 'active' : ''}
+              onClick={() => go(id)}
+            >
+              <span aria-hidden="true">{icon}</span>
+              {label}
+              {id === 'inventario' && shortages.length > 0 && (
+                <i className="nav-count">{shortages.length}</i>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="local">
+          <i /> Guardado en este dispositivo<small>Sin nube · Sin suscripciones</small>
+        </div>
+      </aside>
+      <main>
+        <header>
+          <div>
+            <p className="eyebrow">TU PEQUEÑO NEGOCIO, EN ORDEN</p>
+            <h1>{tabs.find((t) => t[0] === tab)[2]}</h1>
+          </div>
+          <span className="badge">● {online ? 'Local' : 'Sin conexión'}</span>
+        </header>
+        {error && !modal && (
+          <div className="alert" role="alert">
+            {error}
+            <button onClick={() => setError('')}>Cerrar</button>
+          </div>
+        )}
+        {notice && (
+          <div className="toast" role="status">
+            {notice}
+            <button aria-label="Cerrar aviso" onClick={() => setNotice('')}>
+              ×
+            </button>
+          </div>
+        )}
+        {refresh && (
+          <div className="alert">
+            <span>
+              Hay una nueva versión. El borrador de venta se conserva; termina los formularios
+              abiertos antes de actualizar.
+            </span>
+            <button disabled={busy || !!modal} onClick={() => updateServiceWorker(true)}>
+              Actualizar aplicación
+            </button>
+          </div>
+        )}
+        {backupDue && tab !== 'respaldo' && (
+          <div className="backup-reminder">
+            <span>↧ Cuida tus cuentas: genera un respaldo de tu jornada.</span>
+            <button onClick={() => go('respaldo')}>Ir a respaldos</button>
+          </div>
+        )}
 
- const [data,setData]=useState(null),[error,setError]=useState(''),[notice,setNotice]=useState(''),[tab,setTab]=useState('venta'),[expr,setExpr]=useState(''),[cart,setCart]=useState([]),[catalog,setCatalog]=useState(false),[modal,setModal]=useState(null),[busy,setBusy]=useState(false),[search,setSearch]=useState(''),[filter,setFilter]=useState('todos'),[install,setInstall]=useState(null),[target,setTarget]=useState('');
+        {tab === 'venta' && (
+          <>
+            <p className="intro">Suma, cobra y sigue endulzando el día.</p>
+            <div className="salegrid">
+              <section className="panel calculator">
+                <div className="row">
+                  <h2>Calculadora rápida</h2>
+                  <span className="pill">MXN</span>
+                </div>
+                <div className="segments">
+                  <button className={!catalog ? 'selected' : ''} onClick={() => setCatalog(false)}>
+                    Sumar precios
+                  </button>
+                  <button className={catalog ? 'selected' : ''} onClick={() => setCatalog(true)}>
+                    Catálogo opcional
+                  </button>
+                </div>
+                {!catalog ? (
+                  <Calculator value={expr} onChange={setExpr} />
+                ) : (
+                  <>
+                    <div className="display">
+                      <small>TOTAL DEL CATÁLOGO</small>
+                      <strong>{money(total)}</strong>
+                    </div>
+                    <input
+                      aria-label="Buscar en catálogo"
+                      placeholder="Buscar un dulce…"
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                    />
+                    <div className="catalog">
+                      {activeProducts
+                        .filter((p) => matches(p.name, catalogSearch))
+                        .map((p) => {
+                          const quantity = cart.find((c) => c.product === p.id)?.qty || 0;
+                          return (
+                            <button
+                              disabled={p.stock <= quantity || !p.price}
+                              key={p.id}
+                              onClick={() => adjust(p, 1)}
+                            >
+                              {p.name}
+                              <small>
+                                {money(p.price)} · {p.stock - quantity} disponibles
+                              </small>
+                              {quantity > 0 && <span className="pill">{quantity} en venta</span>}
+                            </button>
+                          );
+                        })}
+                    </div>
+                    {!activeProducts.length && (
+                      <p>Agrega tus productos en Inventario para empezar.</p>
+                    )}
+                    {cart.map((c) => {
+                      const p = data.products.find((p) => p.id === c.product);
+                      return (
+                        <div className="cart-line" key={c.product}>
+                          <div>
+                            <b>{p?.name || 'Producto no disponible'}</b>
+                            <small>{money((p?.price || 0) * c.qty)}</small>
+                          </div>
+                          <div className="quantity">
+                            <button
+                              aria-label={`Quitar una unidad de ${p?.name}`}
+                              onClick={() =>
+                                p
+                                  ? adjust(p, -1)
+                                  : setCart((v) => v.filter((x) => x.product !== c.product))
+                              }
+                            >
+                              −
+                            </button>
+                            <span>{c.qty}</span>
+                            <button
+                              aria-label={`Añadir una unidad de ${p?.name}`}
+                              disabled={!p || p.archived || c.qty >= p.stock}
+                              onClick={() => adjust(p, 1)}
+                            >
+                              ＋
+                            </button>
+                          </div>
+                          <button
+                            className="remove"
+                            aria-label={`Quitar ${p?.name || 'producto'} de la venta`}
+                            onClick={() => setCart((v) => v.filter((x) => x.product !== c.product))}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+                {staleCart && (
+                  <p className="warning" role="alert">
+                    Revisa las cantidades: cambió el inventario de algún producto.
+                  </p>
+                )}
+                <div className="actions">
+                  <button
+                    disabled={busy || invalid || !total || staleCart}
+                    className="green"
+                    onClick={() => openModal({ type: 'cash' })}
+                  >
+                    ✓ Cobrar {money(total)}
+                  </button>
+                  <button
+                    disabled={busy || invalid || !total || staleCart}
+                    className="outline"
+                    onClick={() => openModal({ type: 'charge' })}
+                  >
+                    ＋ Agregar a deudor
+                  </button>
+                </div>
+                <p className="hint">
+                  {catalog
+                    ? 'Al registrar la venta se descuenta el inventario.'
+                    : 'La suma libre registra dinero; no descuenta productos ni estima costos.'}
+                  <br />
+                  Tu venta abierta se conserva si recargas en este navegador.
+                </p>
+              </section>
+              <div className="stack">
+                <section className="panel pinkglow">
+                  <span className="tile">↗</span>
+                  <p className="eyebrow">VENDIDO HOY</p>
+                  <h2 className="big">{money(todays.reduce((n, s) => n + s.total, 0))}</h2>
+                  <p>{todays.length} ventas · contado y fiado</p>
+                </section>
+                <section className="panel">
+                  <div className="row">
+                    <h2>Por cobrar</h2>
+                    <span className="pink">♧</span>
+                  </div>
+                  <h2 className="big pink">{money(debts)}</h2>
+                  <p>
+                    {data.people.filter((p) => debt(p.id) > 0).length} personas con saldo pendiente
+                  </p>
+                  <button className="textbutton" onClick={() => go('deudores')}>
+                    Ver las cuentas →
+                  </button>
+                </section>
+                {shortages.length > 0 && (
+                  <section className="panel stock-alert">
+                    <h2>Hora de reponer</h2>
+                    <p>{shortages.length} productos con pocas existencias o agotados.</p>
+                    <button
+                      className="outline full"
+                      onClick={() => {
+                        setInventoryFilter('low');
+                        go('inventario');
+                      }}
+                    >
+                      Revisar mercancía
+                    </button>
+                  </section>
+                )}
+                <section className="panel recent">
+                  <h2>Últimos movimientos</h2>
+                  <HistoryList entries={history.slice(0, 4)} products={data.products} limit={4} />
+                </section>
+              </div>
+            </div>
+          </>
+        )}
 
- const {needRefresh:[refresh],updateServiceWorker}=useRegisterSW({onRegisterError:()=>setNotice('La instalación sin conexión no está disponible en este navegador.')});
+        {tab === 'deudores' && (
+          <>
+            <div className="banner">
+              <div>
+                <small>TOTAL POR COBRAR</small>
+                <h2 className="big pink">{money(debts)}</h2>
+                <p>
+                  {activePeople.length} cuentas activas ·{' '}
+                  {data.people.filter((p) => p.archived).length} archivadas
+                </p>
+              </div>
+              <button className="primary" onClick={() => openModal({ type: 'person' })}>
+                ＋ Nueva persona
+              </button>
+            </div>
+            <div className="toolbar">
+              <input
+                aria-label="Buscar persona"
+                placeholder="Buscar por nombre o teléfono…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                aria-label="Filtrar cuentas"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                <option value="todos">Cuentas activas</option>
+                <option value="deben">Deben</option>
+                <option value="corriente">Al corriente</option>
+                <option value="archivados">Archivados</option>
+              </select>
+            </div>
+            <p className="hint">
+              Mantén presionado el nombre 2 segundos o toca ⋮ para editar o archivar. El total
+              incluye cuentas archivadas.
+            </p>
+            <div className="cards">
+              {people.map((p) => (
+                <section className="panel person" key={p.id}>
+                  <div className="row">
+                    <span className="avatar">{p.name.slice(0, 2).toUpperCase()}</span>
+                    <PersonButton
+                      person={p}
+                      onHistory={() => openModal({ type: 'history', person: p })}
+                      onOptions={() => openModal({ type: 'personOptions', person: p })}
+                    />
+                    <strong className={debt(p.id) > 0 ? 'pink' : 'mint'}>
+                      {money(debt(p.id))}
+                    </strong>
+                  </div>
+                  <div className="actions">
+                    <button
+                      disabled={p.archived}
+                      className="primary"
+                      onClick={() => openModal({ type: 'directCharge', person: p })}
+                    >
+                      ＋ Agregar cargo
+                    </button>
+                    <button
+                      className="green"
+                      disabled={!debt(p.id)}
+                      onClick={() => openModal({ type: 'pay', person: p })}
+                    >
+                      − Abonar
+                    </button>
+                  </div>
+                </section>
+              ))}
+            </div>
+            {!people.length && (
+              <div className="empty panel">
+                {search
+                  ? 'No encontramos ese nombre o teléfono. Prueba otra búsqueda.'
+                  : filter === 'archivados'
+                    ? 'No hay cuentas archivadas.'
+                    : 'No hay cuentas en esta vista. Agrega una persona o cambia el filtro.'}
+              </div>
+            )}
+          </>
+        )}
 
- useEffect(()=>{transact().then(setData).catch(e=>setError('No se pudo abrir el almacenamiento: '+e.message));const focus=()=>transact().then(setData).catch(e=>setError(e.message));window.addEventListener('focus',focus);const before=e=>{e.preventDefault();setInstall(e);};window.addEventListener('beforeinstallprompt',before);return()=>{window.removeEventListener('focus',focus);window.removeEventListener('beforeinstallprompt',before);};},[]);
+        {tab === 'inventario' && (
+          <>
+            <div className="banner">
+              <div>
+                <h2>Tus dulces y algo más</h2>
+                <p>
+                  {activeProducts.length} productos activos · {shortages.length} por reponer
+                </p>
+              </div>
+              <button className="primary" onClick={() => openModal({ type: 'product' })}>
+                ＋ Nuevo producto
+              </button>
+            </div>
+            <div className="toolbar inventory-toolbar">
+              <input
+                aria-label="Buscar producto"
+                placeholder="Buscar producto…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                aria-label="Filtrar inventario"
+                value={inventoryFilter}
+                onChange={(e) => setInventoryFilter(e.target.value)}
+              >
+                <option value="all">Productos activos</option>
+                <option value="low">Por reponer</option>
+                <option value="empty">Agotados</option>
+                <option value="archived">Archivados</option>
+              </select>
+              <select
+                aria-label="Ordenar inventario"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              >
+                <option value="name">Nombre A–Z</option>
+                <option value="stock">Menos existencias</option>
+              </select>
+            </div>
+            <div className="cards">
+              {products.map((p) => (
+                <section className="panel" key={p.id}>
+                  <div className="row">
+                    <span className="tile">◈</span>
+                    <h2>{p.name}</h2>
+                    <span
+                      className={`pill ${!p.stock ? 'empty-stock' : low(p) ? 'low-stock' : ''}`}
+                    >
+                      {p.archived ? 'Archivado' : p.stock ? `${p.stock} uds.` : 'Agotado'}
+                    </span>
+                  </div>
+                  <div className="productstats">
+                    <div>
+                      <small>PRECIO</small>
+                      <b>{money(p.price)}</b>
+                    </div>
+                    <div>
+                      <small>COSTO UNITARIO</small>
+                      <b>{p.cost === null ? 'Desconocido' : money(p.cost)}</b>
+                      <small>
+                        {costKind(p) === 'estimated'
+                          ? 'Estimado'
+                          : costKind(p) === 'real'
+                            ? 'Confirmado'
+                            : 'Sin registrar'}
+                      </small>
+                    </div>
+                    <div>
+                      <small>{costKind(p) === 'estimated' ? 'MARGEN ESTIMADO' : 'MARGEN'}</small>
+                      <b className={p.cost !== null && p.price < p.cost ? 'pink' : 'mint'}>
+                        {p.price && p.cost !== null
+                          ? (((p.price - p.cost) / p.price) * 100).toFixed(1) + '%'
+                          : '—'}
+                      </b>
+                    </div>
+                  </div>
+                  <p>
+                    {p.cost === null
+                      ? 'Ganancia pendiente de conocer el costo'
+                      : `${costKind(p) === 'estimated' ? 'Ganancia estimada' : 'Ganancia bruta'} por unidad: ${money(p.price - p.cost)}`}
+                  </p>
+                  <div className="actions">
+                    <button
+                      className="outline"
+                      onClick={() => openModal({ type: 'product', product: p })}
+                    >
+                      Editar producto
+                    </button>
+                    {!p.archived && (
+                      <button
+                        className="green"
+                        onClick={() => openModal({ type: 'restock', product: p })}
+                      >
+                        ＋ Reponer
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    className="textbutton full"
+                    disabled={busy}
+                    onClick={() =>
+                      commit(
+                        (d) => {
+                          const product = d.products.find((x) => x.id === p.id);
+                          if (!product) throw Error('El producto ya no existe.');
+                          product.archived = !product.archived;
+                          return d;
+                        },
+                        p.archived
+                          ? 'Producto reactivado'
+                          : 'Producto archivado; sus ventas se conservan'
+                      )
+                    }
+                  >
+                    {p.archived ? 'Reactivar producto' : 'Archivar producto'}
+                  </button>
+                </section>
+              ))}
+            </div>
+            {!products.length && (
+              <div className="empty panel">
+                {data.products.length
+                  ? 'No hay productos con estos filtros.'
+                  : 'Tu inventario empieza aquí. Agrega tu primer producto.'}
+              </div>
+            )}
+            <section className="panel">
+              <h2>Movimientos de inventario</h2>
+              {[...data.stock]
+                .reverse()
+                .slice(0, 30)
+                .map((s) => (
+                  <div className="line row" key={s.id}>
+                    <span>
+                      {data.products.find((p) => p.id === s.product)?.name}
+                      <small>
+                        {s.note} · {new Date(s.at).toLocaleString('es-MX')}
+                      </small>
+                    </span>
+                    <b>
+                      {s.delta > 0 ? '+' : ''}
+                      {s.delta} uds.
+                    </b>
+                  </div>
+                ))}
+              {!data.stock.length && <p>Sin movimientos todavía.</p>}
+              <p className="hint">
+                Se muestran los últimos 30 movimientos. El respaldo JSON incluye el historial
+                completo.
+              </p>
+            </section>
+          </>
+        )}
 
- async function commit(fn,message){setBusy(true);setError('');try{const next=await transact(fn);setData(next);setNotice(message);return true;}catch(e){setError(e.message);return false;}finally{setBusy(false);}}
+        {tab === 'dashboard' && <Dashboard data={data} />}
+        {tab === 'respaldo' && (
+          <Backup
+            data={data}
+            busy={busy}
+            lastExport={lastExport}
+            onExport={exportBackup}
+            onImport={(backup) => openModal({ type: 'import', backup })}
+            install={install}
+            onInstall={async () => {
+              try {
+                await install.prompt();
+                setInstall(null);
+              } catch (e) {
+                setError(e.message);
+              }
+            }}
+            onNotice={setNotice}
+            onError={setError}
+          />
+        )}
+        <footer>
+          Dulcería · v1.1<span>Hecho para tu día a día. ✦</span>
+        </footer>
+      </main>
 
- async function checkout(person=null){if(await commit(d=>sell(d,{expression:expr,cart:catalog?cart:[],person}),person?'Cargo agregado a la cuenta':'Venta cobrada y guardada')){setExpr('');setCart([]);setTarget('');setModal(null);}}
-
- let total=0,invalid=false;try{total=catalog?cart.reduce((n,c)=>n+(data?.products.find(p=>p.id===c.product)?.price||0)*c.qty,0):sum(expr);}catch{invalid=true;}
-
- const debts=data?.people.reduce((n,p)=>n+balance(data,p.id),0)||0;
-
- function key(k){setExpr(v=>k==='C'?'':k==='⌫'?v.slice(0,-1):k==='+'?v&& !v.endsWith('+')?v+'+':v:v+k);}
-
- function addProduct(p){setCart(c=>{const old=c.find(x=>x.product===p.id);return old?c.map(x=>x.product===p.id?{...x,qty:x.qty+1}:x):[...c,{product:p.id,qty:1}];});}
-
- async function submit(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));try{
-
- if(modal.type==='editPerson'){if(await commit(d=>editPerson(d,modal.person.id,f),'Datos de la cuenta actualizados'))setModal(null);}
-
- if(modal.type==='person'){if(await commit(d=>{d.people.push({id:uid(),name:f.name.trim(),phone:f.phone.trim(),notes:f.notes.trim()});return d;},'Persona agregada'))setModal(null);}
-
- if(modal.type==='product'){const price=cents(f.price),stock=Number(f.stock);const {cost,costStatus}=pricing({mode:f.costMode,unit:f.unit,pack:f.pack,pieces:f.pieces,price:f.price,margin:f.margin??'30',estimate:f.estimate==='on'});if(!Number.isSafeInteger(stock)||stock<0)throw Error('Existencias inválidas.');if(await commit(d=>{if(modal.product){const p=d.products.find(p=>p.id===modal.product.id);const delta=stock-p.stock;Object.assign(p,{name:f.name.trim(),price,cost,costStatus,stock});if(delta)d.stock.push({id:uid(),product:p.id,delta,note:'Ajuste de inventario',at:new Date().toISOString()});}else{const id=uid();d.products.push({id,name:f.name.trim(),price,cost,costStatus,stock});d.stock.push({id:uid(),product:id,delta:stock,note:'Existencia inicial',at:new Date().toISOString()});}return d;},'Producto guardado'))setModal(null);}
-
- if(modal.type==='pay'){if(await commit(d=>pay(d,modal.person.id,cents(f.amount)),'Abono registrado'))setModal(null);}
-
- if(modal.type==='charge')await checkout(f.person);
-
- }catch(e){setError(e.message);}}
-
- if(!data)return <main><h1>Dulcería</h1><p role="alert">{error||'Abriendo tus cuentas…'}</p></main>;
-
- const people=data.people.filter(p=>(p.name+' '+p.phone).toLowerCase().includes(search.toLowerCase())&&(filter==='archivados'?p.archived:!p.archived)&&(filter==='archivados'||filter==='todos'||(filter==='deben'?balance(data,p.id)>0:balance(data,p.id)===0))).sort((a,b)=>balance(data,b.id)-balance(data,a.id));
-
- const today=new Date().toLocaleDateString();const todays=data.sales.filter(s=>new Date(s.at).toLocaleDateString()===today);const profit=profits(data.sales);const revenue=data.sales.reduce((n,s)=>n+s.total,0);const collected=data.sales.filter(s=>!s.person).reduce((n,s)=>n+s.total,0)+data.payments.reduce((n,p)=>n+p.amount,0);
-
- const history=[...data.sales.map(s=>({...s,label:s.person?data.people.find(p=>p.id===s.person)?.name:'Venta de contado',kind:s.person?'Cargo':'Venta'})),...data.payments.map(p=>({...p,total:p.amount,label:data.people.find(x=>x.id===p.person)?.name,kind:'Abono'}))].sort((a,b)=>b.at.localeCompare(a.at));
-
- return <div className="app"><aside><a className="brand" href="#" onClick={e=>{e.preventDefault();setTab('venta');}}><span className="logo">◈</span><span>Dulcería<small>UN POQUITO DE DULZURA</small></span></a><p className="navlabel">TU NEGOCIO</p><nav>{tabs.map(([id,icon,label])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setSearch('');}}><span>{icon}</span>{label}</button>)}</nav><div className="local"><i/> Guardado en este dispositivo<small>Sin nube · Sin suscripciones</small></div></aside><main><header><div><p className="eyebrow">TU PEQUEÑO NEGOCIO, EN ORDEN</p><h1>{tabs.find(t=>t[0]===tab)[2]}</h1></div><span className="badge">● Local</span></header>
-
- {error&&<div className="alert" role="alert">{error}<button onClick={()=>setError('')}>Cerrar</button></div>}{notice&&<div className="toast" role="status">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
-
- {refresh&&<div className="alert">Hay una nueva versión. Guarda o termina tu venta antes de actualizar.<button onClick={()=>updateServiceWorker(true)}>Actualizar aplicación</button></div>}
-
- {tab==='venta'&&<><p className="intro">Suma, cobra y sigue endulzando el día.</p><div className="salegrid"><section className="panel calculator"><div className="row"><h2>Calculadora rápida</h2><span className="pill">MXN</span></div><div className="segments"><button className={!catalog?'selected':''} onClick={()=>setCatalog(false)}>Sumar precios</button><button className={catalog?'selected':''} onClick={()=>setCatalog(true)}>Catálogo opcional</button></div>{!catalog?<><label className="sr" htmlFor="expression">Suma de precios</label><input id="expression" className="expression" inputMode="text" placeholder="5 + 5 + 2 + 2" value={expr} onChange={e=>setExpr(e.target.value)} autoComplete="off"/><div className="display"><small>TOTAL DE LA VENTA</small><strong>{invalid?'Revisa la suma':money(total)}</strong><span>{expr?'Los importes se suman al instante':'Escribe los precios o usa el teclado'}</span></div><div className="keypad">{['7','8','9','⌫','4','5','6','C','1','2','3','+','0','.'].map(k=><button className={k==='+'?'plus':k==='0'?'zero':''} key={k} onClick={()=>key(k)} aria-label={k==='⌫'?'Borrar último carácter':k==='C'?'Limpiar':k}>{k}</button>)}</div></>:<><div className="display"><small>TOTAL DEL CATÁLOGO</small><strong>{money(total)}</strong></div><div className="catalog">{data.products.length===0?<p>Agrega tus productos en Inventario para empezar.</p>:data.products.map(p=><button disabled={!p.stock} key={p.id} onClick={()=>addProduct(p)}>{p.name}<small>{money(p.price)} · {p.stock} disponibles</small></button>)}</div>{cart.map(c=><div className="row line" key={c.product}><span>{data.products.find(p=>p.id===c.product)?.name} × {c.qty}</span><button onClick={()=>setCart(v=>v.filter(x=>x.product!==c.product))}>Quitar</button></div>)}</>}
-
- <div className="actions"><button disabled={busy||invalid||total<=0} className="green" onClick={()=>setModal({type:'cash'})}>✓ Cobrar {money(total)}</button><button disabled={busy||invalid||total<=0} className="outline" onClick={()=>setModal({type:'charge'})}>＋ Agregar a deudor</button></div><p className="hint">{catalog?'Al registrar la venta se descuenta el inventario.':'La suma libre registra dinero; no descuenta productos ni estima costos.'}</p></section><div className="stack"><section className="panel pinkglow"><span className="tile">↗</span><p className="eyebrow">VENDIDO HOY</p><h2 className="big">{money(todays.reduce((n,s)=>n+s.total,0))}</h2><p>{todays.length} ventas · contado y fiado</p></section><section className="panel"><div className="row"><h2>Por cobrar</h2><span className="pink">♧</span></div><h2 className="big pink">{money(debts)}</h2><p>{data.people.filter(p=>balance(data,p.id)>0).length} personas con saldo pendiente</p><button className="textbutton" onClick={()=>setTab('deudores')}>Ver las cuentas →</button></section><section className="panel"><h2>Últimos movimientos</h2>{history.slice(0,4).map(s=><div className="movement" key={s.id}><span className={s.kind==='Abono'?'dot greenbg':'dot'}/><div><b>{s.label}</b><small>{s.kind} · {date(s.at)}</small></div><b className={s.kind==='Abono'?'mint':'pink'}>{money(s.total)}</b></div>)}{!history.length&&<p className="empty">Todo listo para tu primera venta. ✦</p>}</section></div></div></>}
-
- {tab==='deudores'&&<><div className="banner"><div><small>TOTAL POR COBRAR</small><h2 className="big pink">{money(debts)}</h2><p>{data.people.length} cuentas en tu lista</p></div><button className="primary" onClick={()=>setModal({type:'person'})}>＋ Nueva persona</button></div><div className="toolbar"><input aria-label="Buscar persona" placeholder="Buscar por nombre o teléfono…" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filtrar cuentas" value={filter} onChange={e=>setFilter(e.target.value)}><option value="todos">Todas las cuentas</option><option value="deben">Deben</option><option value="corriente">Al corriente</option><option value="archivados">Archivados</option></select></div><p className="hint">Mantén presionado el nombre 2 segundos o toca ⋮ para editar o archivar. El total por cobrar incluye cuentas archivadas.</p><div className="cards">{people.map(p=><section className="panel person" key={p.id}><div className="row"><span className="avatar">{p.name.slice(0,2).toUpperCase()}</span><PersonButton person={p} onHistory={()=>setModal({type:'history',person:p})} onOptions={()=>setModal({type:'personOptions',person:p})}/><strong className={balance(data,p.id)>0?'pink':'mint'}>{money(balance(data,p.id))}</strong></div><div className="actions"><button disabled={p.archived} className="primary" onClick={()=>{setCatalog(false);setTab('venta');setTarget(p.id);setModal(null);setNotice('Suma los precios y pulsa Agregar a deudor para cargar a '+p.name);}}>＋ Agregar cargo</button><button className="green" disabled={!balance(data,p.id)} onClick={()=>setModal({type:'pay',person:p})}>− Abonar</button></div></section>)}</div>{!people.length&&<div className="empty panel">Todavía no hay cuentas para mostrar. Agrega una persona para empezar.</div>}</>}
-
- {tab==='inventario'&&<><div className="banner"><div><h2>Tus dulces y algo más</h2><p>Precios, existencias y margen por producto.</p></div><button className="primary" onClick={()=>setModal({type:'product'})}>＋ Nuevo producto</button></div><input aria-label="Buscar producto" placeholder="Buscar producto…" value={search} onChange={e=>setSearch(e.target.value)}/><div className="cards">{data.products.filter(p=>p.name.toLowerCase().includes(search.toLowerCase())).map(p=><section className="panel" key={p.id}><div className="row"><span className="tile">◈</span><h2>{p.name}</h2><span className="pill">{p.stock} uds.</span></div><div className="productstats"><div><small>PRECIO</small><b>{money(p.price)}</b></div><div><small>COSTO UNITARIO</small><b>{p.cost===null?'Desconocido':money(p.cost)}</b><small>{costKind(p)==='estimated'?'Estimado':costKind(p)==='real'?'Confirmado':'Sin registrar'}</small></div><div><small>MARGEN</small><b className="mint">{p.price&&p.cost!==null?((p.price-p.cost)/p.price*100).toFixed(1)+'%':'—'}</b></div></div><p>{p.cost===null?'Ganancia pendiente de conocer el costo':`${costKind(p)==='estimated'?'Ganancia estimada':'Ganancia bruta'} por unidad: ${money(p.price-p.cost)}`}</p><button className="outline" onClick={()=>setModal({type:'product',product:p})}>Editar / ajustar existencias</button></section>)}</div>{!data.products.length&&<div className="empty panel">Tu inventario empieza aquí. Registra el costo y precio de tu primer producto.</div>}<section className="panel"><h2>Movimientos de inventario</h2>{[...data.stock].reverse().slice(0,30).map(s=><div className="line row" key={s.id}><span>{data.products.find(p=>p.id===s.product)?.name}<small>{s.note} · {date(s.at)}</small></span><b>{s.delta>0?'+':''}{s.delta} uds.</b></div>)}{!data.stock.length&&<p>Sin movimientos todavía.</p>}</section></>}
-
- {tab==='dashboard'&&<><p className="intro">Una mirada a tu negocio · Todo el historial</p><div className="stats">{[['Ventas registradas',revenue],['Dinero cobrado',collected],['Por cobrar',debts],['Inventario con costo confirmado',data.products.filter(p=>costKind(p)==='real').reduce((n,p)=>n+p.stock*p.cost,0)]].map(([label,n])=><section className="panel" key={label}><small>{label}</small><h2 className="big">{money(n)}</h2></section>)}</div><div className="cards"><section className="panel"><h2>Ganancia bruta con costo confirmado</h2><h2 className="big mint">{money(profit.real)}</h2><p>Solo unidades con costo confirmado al vender, incluidas las fiadas. No incluye gastos ni compras.</p><p>Ganancia bruta estimada (separada): <b className="pink">{money(profit.estimated)}</b></p><p>{money(profit.unknown)} en ventas sin costo conocido; no se cuentan como ganancia.</p></section><section className="panel"><h2>Quién debe más</h2>{[...data.people].sort((a,b)=>balance(data,b.id)-balance(data,a.id)).filter(p=>balance(data,p.id)>0).slice(0,7).map(p=><div className="barrow" key={p.id}><div className="row"><span>{p.name}</span><b className="pink">{money(balance(data,p.id))}</b></div><div className="track"><div style={{width:`${balance(data,p.id)/Math.max(1,debts)*100}%`}}/></div></div>)}{!debts&&<p>Sin cuentas pendientes. ✦</p>}</section></div><section className="panel"><h2>Historial de ventas y abonos</h2>{history.map(s=><div className="movement" key={s.id}><span className={s.kind==='Abono'?'dot greenbg':'dot'}/><div><b>{s.label} · {s.kind}</b><small>{date(s.at)}{s.note?' · '+s.note:''}</small></div><strong>{money(s.total)}</strong></div>)}{!history.length&&<p>Aquí aparecerán tus operaciones.</p>}</section></>}
-
- {tab==='respaldo'&&<div className="stack narrow"><section className="panel"><span className="tile">↧</span><h2>Tus datos, contigo</h2><p>Guarda una copia fuera del navegador al cerrar cada jornada. El archivo contiene todos tus productos, cuentas y movimientos.</p><button className="primary" onClick={()=>{const blob=new Blob([JSON.stringify({...data,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`dulceria-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setNotice('Respaldo generado. Comprueba que se descargó y guárdalo en un lugar seguro.');}}>Descargar respaldo JSON</button></section><section className="panel"><h2>Restaurar una copia</h2><p>Reemplaza todos los datos actuales. Primero descarga un respaldo. Los archivos se revisan antes de restaurarlos.</p><label className="filelabel">Elegir respaldo JSON<input type="file" accept=".json,application/json" onChange={async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>20e6)throw Error('El archivo excede 20 MB.');const backup=validate(JSON.parse(await file.text()));setModal({type:'import',backup});}catch(err){setError(err.message);}finally{e.target.value='';}}}/></label></section><section className="panel"><h2>Este dispositivo es tu caja</h2><p>No hay sincronización entre teléfonos, computadoras o navegadores. Borrar los datos del navegador, usar modo incógnito o perder el dispositivo puede eliminar tus registros. Los respaldos no están cifrados: cuídalos como tus cuentas.</p><button className="outline" onClick={async()=>{try{const result=await navigator.storage?.persist?.();setNotice(result?'El navegador concedió almacenamiento persistente. Sigue haciendo respaldos.':'El navegador no concedió persistencia. Sigue haciendo respaldos.');}catch(e){setError(e.message);}}}>Solicitar almacenamiento persistente</button></section><section className="panel"><h2>Instalar en Android</h2><p>Abre el enlace HTTPS en Chrome, espera la primera carga completa y elige «Instalar aplicación» o «Agregar a pantalla principal». Después ábrela una vez desde el icono y comprueba que funciona en modo avión.</p>{install&&<button className="primary" onClick={async()=>{await install.prompt();setInstall(null);}}>Instalar Dulcería</button>}<p>En HTTP local puedes probar la app; la instalación y el modo sin conexión requieren HTTPS o localhost.</p></section></div>}
-
- <footer>Dulcería <span>Hecho para tu día a día. ✦</span></footer></main>
-
- {modal&&<div className="overlay" onClick={e=>{if(e.target===e.currentTarget&&!busy)setModal(null);}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><div className="row"><h2 id="dialog-title">{({person:'Nueva persona',editPerson:'Editar persona',personOptions:modal.person?.name,product:modal.product?'Editar producto':'Nuevo producto',pay:'Registrar abono',charge:'Agregar a una cuenta',cash:'Cobrar venta',history:modal.person?.name,import:'Restaurar respaldo'})[modal.type]}</h2><button aria-label="Cerrar ventana" disabled={busy} onClick={()=>setModal(null)}>×</button></div>{error&&<p role="alert" className="pink">{error}</p>}
-
- {modal.type==='personOptions'?<><p>Opciones de esta cuenta</p><div className="stack"><button className="primary" onClick={()=>setModal({type:'editPerson',person:modal.person})}>Editar nombre, teléfono y notas</button><button className="outline" disabled={busy} onClick={async()=>{if(await commit(d=>archivePerson(d,modal.person.id,!modal.person.archived),modal.person.archived?'Cuenta reactivada':'Cuenta archivada; su saldo e historial se conservan'))setModal(null);}}>{modal.person.archived?'Reactivar cliente':'Archivar cliente'}</button></div><p className="hint">Archivar lo oculta de las cuentas activas. Su saldo sigue en el total por cobrar y puedes registrar abonos desde el filtro Archivados.</p></>:modal.type==='cash'?<><p>Total a cobrar</p><h2 className="big mint">{money(total)}</h2><p>Confirma cuando hayas recibido el dinero. Esta venta quedará registrada como contado.</p><button disabled={busy} className="green" onClick={()=>checkout()}>Confirmar cobro</button></>:modal.type==='import'?<><p>Se reemplazarán {data.sales.length} ventas y {data.people.length} cuentas por {modal.backup.sales.length} ventas y {modal.backup.people.length} cuentas del respaldo. Esta operación no mezcla registros.</p><button disabled={busy} className="primary" onClick={async()=>{if(await commit(()=>modal.backup,'Respaldo restaurado')){setCart([]);setExpr('');setModal(null);}}}>Sí, reemplazar mis datos</button></>:modal.type==='history'?<><p>{modal.person.phone}</p><p>{modal.person.notes}</p><h2 className="pink">Saldo: {money(balance(data,modal.person.id))}</h2>{history.filter(s=>s.person===modal.person.id).map(s=><div className="line row" key={s.id}><span>{s.kind}<small>{date(s.at)} · {s.note||''}</small></span><b>{money(s.total)}</b></div>)}</>:<form onSubmit={submit}>
-
- {(modal.type==='person'||modal.type==='editPerson')&&<><label>Nombre<input name="name" required maxLength={80} defaultValue={modal.person?.name} autoFocus/></label><label>Teléfono (opcional)<input name="phone" type="tel" maxLength={30} defaultValue={modal.person?.phone}/></label><label>Notas (opcional)<textarea name="notes" maxLength={500} defaultValue={modal.person?.notes}/></label><p className="hint">{modal.type==='editPerson'?'Editar los datos conserva el saldo y todos los movimientos.':'La cuenta empieza en cero. Puedes agregar su saldo desde la calculadora.'}</p></>}
-
- {modal.type==='product'&&<ProductFields product={modal.product}/>}
-
- {modal.type==='pay'&&<><p>{modal.person.name} · Saldo: {money(balance(data,modal.person.id))}</p><label>Importe del abono<input name="amount" type="number" min="0.01" step="0.01" max={balance(data,modal.person.id)/100} required autoFocus/></label></>}
-
- {modal.type==='charge'&&<><h2 className="big pink">{money(total)}</h2><label>Persona<select name="person" required defaultValue={target}><option value="" disabled>Elige una cuenta</option>{data.people.filter(p=>!p.archived).map(p=><option value={p.id} key={p.id}>{p.name} · {money(balance(data,p.id))}</option>)}</select></label>{!data.people.some(p=>!p.archived)&&<p>Cierra esta ventana y crea una persona en Deudores.</p>}</>}
-
- <div className="actions"><button type="button" disabled={busy} onClick={()=>setModal(null)}>Cancelar</button><button disabled={busy||modal.type==='charge'&&!data.people.some(p=>!p.archived)} className="primary" type="submit">{busy?'Guardando…':'Guardar'}</button></div></form>}</section></div>}
-
- </div>;
-
+      {modal && (
+        <Modal title={titleFor(modal)} busy={busy} onClose={() => setModal(null)}>
+          {error && (
+            <p className="warning" role="alert">
+              {error}
+            </p>
+          )}
+          {modal.type === 'personOptions' ? (
+            <>
+              <p>Opciones de esta cuenta</p>
+              <div className="stack">
+                <button
+                  className="primary"
+                  onClick={() => openModal({ type: 'editPerson', person: currentPerson })}
+                >
+                  Editar nombre, teléfono y notas
+                </button>
+                <button
+                  className="outline"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (
+                      await commit(
+                        (d) => archivePerson(d, currentPerson.id, !currentPerson.archived),
+                        currentPerson.archived
+                          ? 'Cuenta reactivada'
+                          : 'Cuenta archivada; su saldo e historial se conservan'
+                      )
+                    )
+                      setModal(null);
+                  }}
+                >
+                  {currentPerson.archived ? 'Reactivar cliente' : 'Archivar cliente'}
+                </button>
+              </div>
+              <p className="hint">
+                Archivar lo oculta de las cuentas activas. Su saldo sigue en el total y puedes
+                abonar desde Archivados.
+              </p>
+            </>
+          ) : modal.type === 'cash' ? (
+            <CashPayment
+              total={total}
+              busy={busy}
+              onConfirm={(received) => checkout(null, received)}
+            />
+          ) : modal.type === 'directCharge' ? (
+            <DirectCharge
+              person={currentPerson}
+              busy={busy}
+              onConfirm={async (expression, id) => {
+                if (
+                  await commit(
+                    (d) => sell(d, { expression, person: currentPerson.id, operationId: id }),
+                    'Cargo agregado a ' + currentPerson.name
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === 'pay' ? (
+            <PaymentForm
+              person={currentPerson}
+              data={data}
+              busy={busy}
+              onConfirm={async (amount) => {
+                if (await commit((d) => pay(d, currentPerson.id, amount), 'Abono registrado'))
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === 'import' ? (
+            <>
+              <p>
+                Vas a reemplazar{' '}
+                <b>
+                  {data.sales.length} ventas y {data.people.length} cuentas
+                </b>{' '}
+                por{' '}
+                <b>
+                  {modal.backup.sales.length} ventas y {modal.backup.people.length} cuentas
+                </b>{' '}
+                del respaldo.
+              </p>
+              <p>
+                Se guardará una copia anterior en este dispositivo. Esa copia tampoco sustituye un
+                respaldo descargado.
+              </p>
+              <button disabled={busy} className="outline full" onClick={() => exportBackup(data)}>
+                Descargar primero mis datos actuales
+              </button>
+              <button
+                disabled={busy}
+                className="primary full"
+                onClick={async () => {
+                  if (
+                    await commit(
+                      () => modal.backup,
+                      'Respaldo restaurado. Puedes recuperar la copia anterior desde Respaldo.',
+                      { capture: true }
+                    )
+                  ) {
+                    resetDraft();
+                    setModal(null);
+                  }
+                }}
+              >
+                Confirmar reemplazo de mis datos
+              </button>
+            </>
+          ) : modal.type === 'history' ? (
+            <>
+              <p>{currentPerson.phone}</p>
+              <p>{currentPerson.notes}</p>
+              <small>SALDO ACTUAL</small>
+              <h2 className="big pink">{money(debt(currentPerson.id))}</h2>
+              <div className="actions">
+                <button
+                  className="primary"
+                  disabled={currentPerson.archived}
+                  onClick={() => openModal({ type: 'directCharge', person: currentPerson })}
+                >
+                  ＋ Agregar cargo
+                </button>
+                <button
+                  className="green"
+                  disabled={!debt(currentPerson.id)}
+                  onClick={() => openModal({ type: 'pay', person: currentPerson })}
+                >
+                  Abonar
+                </button>
+              </div>
+              <HistoryList
+                entries={history.filter((s) => s.person === currentPerson.id)}
+                products={data.products}
+              />
+            </>
+          ) : (
+            <form onSubmit={submit}>
+              {(modal.type === 'person' || modal.type === 'editPerson') && (
+                <>
+                  <label>
+                    Nombre
+                    <input
+                      name="name"
+                      required
+                      maxLength={80}
+                      defaultValue={modal.person?.name}
+                      autoFocus
+                    />
+                  </label>
+                  <label>
+                    Teléfono (opcional)
+                    <input
+                      name="phone"
+                      type="tel"
+                      maxLength={30}
+                      defaultValue={modal.person?.phone}
+                    />
+                  </label>
+                  <label>
+                    Notas (opcional)
+                    <textarea name="notes" maxLength={500} defaultValue={modal.person?.notes} />
+                  </label>
+                  <p className="hint">
+                    {modal.type === 'editPerson'
+                      ? 'Se conservan el saldo y todos los movimientos.'
+                      : 'La cuenta empieza en cero. Después puedes añadir cargos con su calculadora.'}
+                  </p>
+                </>
+              )}
+              {modal.type === 'product' && <ProductFields product={modal.product} />}
+              {modal.type === 'restock' && (
+                <>
+                  <p>
+                    {modal.product.name} ·{' '}
+                    {data.products.find((p) => p.id === modal.product.id)?.stock} unidades actuales
+                  </p>
+                  <label>
+                    Unidades nuevas que recibiste
+                    <input
+                      name="quantity"
+                      type="number"
+                      inputMode="numeric"
+                      min="1"
+                      step="1"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Nota (opcional)
+                    <input name="note" maxLength={200} placeholder="Ej. Un paquete de 12 piezas" />
+                  </label>
+                  <p className="hint">
+                    Estas unidades se suman a las actuales. El costo se conserva: si cambió,
+                    actualízalo en Editar producto. Este movimiento no registra un gasto de compra.
+                  </p>
+                </>
+              )}
+              {modal.type === 'charge' && (
+                <>
+                  <h2 className="big pink">{money(total)}</h2>
+                  <label>
+                    Persona
+                    <select
+                      name="person"
+                      required
+                      defaultValue={activePeople.some((p) => p.id === target) ? target : ''}
+                    >
+                      <option value="" disabled>
+                        Elige una cuenta
+                      </option>
+                      {activePeople.map((p) => (
+                        <option value={p.id} key={p.id}>
+                          {p.name} · {money(debt(p.id))}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {!activePeople.length && (
+                    <p>Crea una persona en Deudores. Tu venta abierta se conservará.</p>
+                  )}
+                </>
+              )}
+              <div className="actions">
+                <button type="button" disabled={busy} onClick={() => setModal(null)}>
+                  Cancelar
+                </button>
+                <button
+                  disabled={busy || (modal.type === 'charge' && !activePeople.length)}
+                  className="primary"
+                  type="submit"
+                >
+                  {busy ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
 }
-
-createRoot(document.getElementById('root')).render(<App/>);
-
+createRoot(document.getElementById('root')).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);

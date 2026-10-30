@@ -1,90 +1,99 @@
-# Dulcería 🍬
+# Dulcería 🍬 · v1.1
 
-## Editar o archivar clientes
+Punto de venta personal para una dulcería pequeña. React + Vite + JavaScript + CSS, IndexedDB y Android PWA. Sin servidor de datos, cuentas de acceso, analítica, fuentes externas ni sincronización en la nube.
 
-En Deudores, mantén presionado el **nombre de la cuenta durante dos segundos** para abrir sus opciones. También puedes tocar el botón **⋮**, disponible para teclado y pulsación normal. Mover el dedo o comenzar a desplazar la pantalla cancela la pulsación prolongada.
+**Abrir aplicación:** https://brunoibamar.github.io/dulceria/
 
-Puedes editar nombre, teléfono y notas sin cambiar la identidad, saldo ni movimientos de la cuenta. Si ya no es cliente, usa **Archivar cliente**: desaparece de las cuentas activas y de la selección para nuevos cargos, pero conserva su deuda e historial. En el filtro **Archivados** puedes seguir registrando abonos, editarlo y **Reactivar cliente**. Los totales por cobrar siguen incluyendo sus saldos. No se borran cuentas ni deudas con esta operación.
+**Código:** https://github.com/brunoibamar/dulceria
 
-## Alta de productos: paquetes y costos desconocidos
+Ramas: `main` (publicación) y `movil-refactor` (trabajo). El sitio y el código son públicos; tus registros se guardan en el navegador, no en GitHub.
 
-En Inventario → Nuevo producto (también al editar) puedes elegir:
+## Usar en Android
 
-- **Conozco el costo por pieza:** captura el costo unitario y el margen deseado sobre venta.
-- **Compré un paquete:** captura el importe del paquete y sus piezas. Se calcula costo por pieza redondeado a centavos y precio sugerido = costo / (1 − margen / 100), redondeado hacia arriba al centavo. Puedes usarlo o redondear hacia arriba al peso siguiente; el precio final siempre lo decides tú. Un paquete de $120 con 12 piezas da $10 de costo y $14.29 sugeridos con margen de 30 %, o $15 al redondear al peso. El margen real al vender a $15 es 33.3 % antes de gastos.
-- **Solo conozco mi precio de venta:** guarda el costo como desconocido. Opcionalmente activa la estimación y escribe un margen supuesto: costo estimado = precio × (1 − margen / 100). No reconstruye el costo real de compra.
+Abre el enlace HTTPS con Chrome. Espera la carga completa, elige Instalar aplicación / Agregar a pantalla principal y ábrela una vez desde el icono con internet. Después comprueba el funcionamiento en modo avión. Cuando haya una actualización, termina o cierra los formularios abiertos y pulsa **Actualizar aplicación**. El borrador de la venta principal se conserva en este navegador. No borres los datos del sitio para actualizar.
 
-Las existencias son el total de unidades: el botón de piezas copia la cantidad del paquete a ese campo y no suma automáticamente una compra. Puedes ajustar el total antes de guardar. Al editar un producto existente, el costo unitario calculado queda disponible; no se conserva la presentación del paquete como una compra o lote independiente.
+## Ventas
 
-La ganancia bruta con costo confirmado y la estimada aparecen separadas en Resumen. Las ventas sin costo se informan por su importe y no se consideran ganancia. El valor de inventario mostrado incluye solo productos con costo confirmado. Ventas anteriores conservan su costo y clasificación al vender. Los registros y respaldos anteriores sin clasificación mantienen sus costos como confirmados; el cero histórico no se reclasifica automáticamente.
+- **Sumar precios:** escribe `5+5+2+2` o usa el teclado. Acepta punto o coma decimal y hasta dos decimales por importe; únicamente sumas. `C` borra la suma y ofrece recuperarla mientras no captures otra. No se descuenta inventario ni se inventa el costo de una venta libre.
+- **Cobrar:** introduce el efectivo recibido o pulsa Exacto / uno de los importes rápidos. La app calcula el cambio y no permite confirmar si el dinero es insuficiente. Confirma solo cuando hayas recibido el efectivo. Es un registro manual, no una integración con tarjetas.
+- **Catálogo:** busca un producto, agrega unidades y usa los botones − / ＋ para ajustar cantidades. Se impide añadir más unidades de las disponibles; al registrar se revisa otra vez el inventario. El nombre, precio, costo y clasificación de costo quedan conservados en la venta.
+- **Agregar a deudor:** registra la venta en la cuenta seleccionada. También puedes abrir la calculadora individual desde la tarjeta del cliente sin alterar la venta principal abierta.
+- El borrador principal (suma, catálogo y cantidades) se guarda en localStorage; los registros confirmados se guardan en IndexedDB. Los formularios abiertos y las sumas de la calculadora individual no se recuperan si los cierras o recargas.
+- Un identificador por borrador y el bloqueo mientras se guarda evitan repetir el mismo cobro por doble toque o por dos pestañas con el mismo borrador.
 
-Se conserva IndexedDB y el formato de respaldo con campos opcionales de clasificación. Antes de actualizar, descarga una copia. Los respaldos con costo desconocido requieren esta versión o posterior al restaurar.
+## Deudores
 
-Aplicación personal para una tienda pequeña. React + Vite + JavaScript y CSS. Calculadora protagonista, catálogo opcional, cuentas de deudores, abonos, existencias, costos, resumen y respaldos. Sin servidor de datos, cuentas de acceso ni servicios en la nube. Empieza vacía: no contiene datos de las capturas de referencia.
+Crea la persona con nombre, teléfono y notas. Su cuenta empieza en cero. **Agregar cargo** abre una calculadora para esa persona; **Abonar** muestra el saldo que quedará y permite liquidarlo completo. Los abonos no pueden superar la deuda.
 
-## Abrir en tu computadora
+Toca el nombre para ver su historial o mantenlo presionado **dos segundos** para abrir opciones. El botón **⋮** hace lo mismo y permite usar teclado. Mover el dedo o desplazar la pantalla cancela la pulsación prolongada.
 
-1. Instala Node.js 22.12 o posterior (versión LTS).
-2. Extrae el ZIP. Abre una terminal dentro de la carpeta `dulceria`.
-3. Ejecuta `npm install` y luego `npm run dev`.
-4. Abre la dirección que muestra Vite (normalmente http://localhost:5173).
+Puedes editar nombre, teléfono y notas sin cambiar el saldo ni los movimientos. **Archivar cliente** lo oculta de las cuentas activas y de nuevos cargos; conserva el historial y la deuda. Desde el filtro Archivados puedes abonar, editar y reactivar. El saldo total por cobrar incluye cuentas archivadas.
 
-No abras index.html con doble clic: necesita el servidor de desarrollo o el contenido compilado servido por HTTP.
+Las búsquedas de nombres y productos ignoran mayúsculas y acentos.
 
-Para verificar: `npm test` y `npm run build`. Para probar la versión compilada: `npm run preview`. El resultado se genera en `dist/`. El ZIP de entrega incluye la compilación preparada; en GitHub, dist se genera al compilar. No necesitas subir node_modules a GitHub. El archivo pnpm-lock.yaml fija las versiones utilizadas en el despliegue; si cambias dependencias, actualiza ese archivo con pnpm 11.25.0.
+## Productos e inventario
 
-## Publicar en GitHub Pages
+Al crear o editar un producto puedes elegir:
 
-1. Crea un repositorio en tu cuenta (por ejemplo `dulceria`).
-2. Sube **el contenido de esta carpeta**, incluyendo `src`, `public`, `package.json`, `pnpm-lock.yaml`, `vite.config.js` y la carpeta oculta `.github`. No subas node_modules, respaldos JSON ni registros personales. Si usas la web de GitHub, comprueba que el workflow `.github/workflows/pages.yml` también se haya subido.
-3. Usa `main` como rama principal, o cambia el nombre de la rama en el workflow.
-4. En Settings → Pages → Build and deployment, selecciona **GitHub Actions**.
-5. En Actions, abre «Publicar Dulcería» y espera a que termine. Puedes ejecutarlo manualmente con Run workflow.
-6. Abre la URL que devuelve el despliegue, normalmente `https://TU-USUARIO.github.io/dulceria/`.
+1. **Conozco el costo por pieza.** Registra costo unitario y precio de venta.
+2. **Compré un paquete.** Captura costo del paquete y piezas. Costo unitario = importe / piezas, redondeado al centavo. Precio sugerido = costo / (1 − margen / 100), redondeado hacia arriba al centavo. Puedes usarlo o redondearlo al peso siguiente. Siempre eliges el precio final.
+3. **Solo conozco mi precio de venta.** Deja el costo desconocido o activa una estimación con margen supuesto. Esa estimación no demuestra cuánto pagaste realmente.
 
-La configuración usa rutas relativas para admitir repositorios y dominios raíz sin editar el nombre del repositorio. La navegación interna no cambia la ruta, por lo que recargar una sección no produce un error 404. Repositorio público: https://github.com/brunoibamar/dulceria. Ramas: main y movil-refactor. Publicación en GitHub Pages mediante Actions desde main: https://brunoibamar.github.io/dulceria/.
+Ejemplo: $120 por 12 piezas → $10 por pieza. Con margen de 30 % sobre venta, sugerido $14.29 o $15 al redondear al peso. A $15, el margen efectivo es 33.3 % antes de gastos. Los cálculos de sugerencias evitan errores de redondeo de punto flotante.
 
-El workflow instala, prueba, compila y publica únicamente `dist`. También puedes alojar esa carpeta en cualquier servidor estático. Referencias: [Vite / GitHub Pages](https://vite.dev/guide/static-deploy#github-pages) y [workflows de Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+Las existencias al editar son el **total**. El botón de piezas del paquete copia esa cantidad como total; no agrega un lote. **Reponer** suma unidades a las existentes sin sobrescribirlas y guarda una nota. Conserva el costo actual: si cambió la compra, actualízalo en Editar producto. No registra un gasto ni calcula costo promedio por lotes.
 
-## Instalar en Android y trabajar sin conexión
+Define cuándo avisar por pocas piezas (por defecto 3). Hay filtros de agotados, por reponer y archivados, y orden por nombre o existencias. Archivar un producto lo quita del catálogo pero conserva stock e historial; puede reactivarse. El valor total del inventario con costo confirmado incluye también esas existencias archivadas.
 
-1. Abre tu URL **HTTPS** con Chrome en Android y deja completar la primera carga con internet.
-2. En Respaldo puedes usar el botón de instalación cuando Chrome lo ofrezca; también está disponible en el menú de Chrome → Instalar aplicación / Agregar a pantalla principal.
-3. Abre una vez desde el icono, cierra y vuelve a abrir en modo avión para verificar tu dispositivo.
-4. Cuando aparezca un aviso de nueva versión, termina tu venta y pulsa Actualizar aplicación.
+Si una venta cambia el stock mientras estás editando solo el precio o nombre, se conserva el stock más reciente. Si intentas un ajuste absoluto basado en una cantidad que cambió mientras editabas, se pide volver a revisar. Los cambios de precios y costos no alteran ventas anteriores.
 
-El service worker guarda los archivos de la aplicación; IndexedDB guarda los registros. No usa fuentes externas, analítica ni peticiones a un backend. HTTP en una IP de tu red sirve para probar la interfaz, pero la instalación y service workers necesitan HTTPS, salvo localhost. Consulta [contextos seguros de MDN](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts) y [caché PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Caching).
+## Resumen e historial
 
-## Uso
+Elige Hoy, últimos 7 días (incluye hoy), mes actual o todo el historial. Se usa el día local del dispositivo.
 
-- **Nueva venta:** escribe `5+5+2+2` o pulsa el teclado. Acepta punto decimal, importes positivos con hasta dos decimales y únicamente sumas. Un `+` final permite seguir capturando. Cobrar pide confirmar que recibiste el dinero; Agregar a deudor elige la cuenta y registra una venta fiada.
-- **Catálogo opcional:** crea primero productos en Inventario. Toca un producto varias veces para agregar unidades. Quitar elimina esa línea completa. Al guardar la venta se revisan existencias y se descuentan en la misma transacción que la venta.
-- **Deudores:** registra nombre, teléfono y notas. La cuenta empieza en cero. Para cargar un saldo previo usa la calculadora y agrega el total a esa persona. El abono no puede superar el saldo ni ser cero. Toca el nombre para consultar movimientos.
-- **Inventario:** precio y costo por unidad; existencias enteras. Editar existencias registra un ajuste. Margen = (precio − costo) / precio; si el precio es cero se muestra «—». Puede ser negativo cuando el costo supera al precio.
-- **Resumen:** ventas incluye contado y fiado. Dinero cobrado = contado + abonos; un abono no se cuenta dos veces como venta. Ganancia bruta conocida incluye solo catálogo y utiliza el costo de cada venta, aunque el costo actual cambie. No equivale a utilidad neta: no incluye gastos, compras ni el costo desconocido de sumas libres. «Hoy» usa el día local del dispositivo.
-- **Respaldo:** descarga un JSON a diario y comprueba que existe en Descargas. Para restaurar, elige el archivo, revisa la cantidad de registros y confirma el reemplazo. No combina archivos. El archivo debe ser de esta aplicación y versión de esquema 1; máximo 20 MB.
+- **Ventas:** contado + fiado del periodo.
+- **Cobrado:** contado del periodo + abonos recibidos en el periodo. No vuelve a contar un abono como venta.
+- **Por cobrar e inventario:** son saldos actuales, independientes del periodo elegido.
+- **Ganancia bruta confirmada:** solo unidades vendidas con costo confirmado. La ganancia estimada aparece separada y los importes vendidos sin costo no se consideran ganancia. Incluye fiados; no resta gastos, compras ni impuestos y no equivale a utilidad neta.
+- Gráfica semanal con alternativa en cifras; promedio por venta, cuentas con mayor saldo, búsquedas e historial con carga progresiva. Toca una operación para ver su detalle, suma capturada o piezas y, cuando corresponda, efectivo y cambio.
 
-## Límites y cuidado de tus datos
+## Respaldo y recuperación
 
-Cada navegador, perfil y dispositivo mantiene datos separados. El código y la interfaz de GitHub Pages pueden ser públicos; tus registros permanecen en tu navegador, no se publican en GitHub. No hay contraseña ficticia ni protección contra quien tenga acceso a tu teléfono desbloqueado.
+Genera un JSON al cerrar la jornada, comprueba que está en Descargas y guárdalo fuera del navegador. La app recuerda cuándo generó el último archivo y muestra un aviso si no has generado uno o pasó un día; **no puede garantizar que conservaste el archivo descargado**.
 
-IndexedDB no es una garantía contra pérdida: borrar datos del sitio, usar incógnito, perder el teléfono o una limpieza por falta de espacio puede borrar los registros. Solicitar almacenamiento persistente ayuda si el navegador lo permite, pero no sustituye respaldos. Cambiar de dominio u origen requiere exportar e importar. Varias aplicaciones del mismo dominio GitHub Pages comparten origen: esta app usa su propia base con nombre `dulceria-local-v1`; dos copias de Dulcería bajo el mismo origen compartirán esa base. Usa un dominio u origen distinto para negocios separados.
+Para restaurar, elige un JSON de Dulcería (máximo 20 MB), revisa sus cantidades y confirma el reemplazo. No mezcla registros. Se valida antes de escribir. La restauración guarda atómicamente una copia del estado anterior dentro de IndexedDB; en Respaldo aparecerá **Revisar copia anterior a la última restauración**. Puedes recuperarla confirmando ese reemplazo; se conserva entonces la versión que acabas de reemplazar. Solo hay una copia anterior, no un historial ilimitado. Si se borran los datos del navegador, esa copia local también se pierde.
 
-Los respaldos contienen nombres, teléfonos y cuentas en texto legible, sin cifrado. Guárdalos en un lugar protegido. No los subas al repositorio. Se valida la estructura antes de restaurar y los cambios de registros son atómicos. En varias pestañas se evitan escrituras perdidas al leer y modificar dentro de una transacción; vuelve a enfocar una pestaña para refrescar su vista.
+Los respaldos contienen nombres, teléfonos y cuentas sin cifrar. No los subas al repositorio. El esquema sigue siendo 1 con nuevos campos opcionales; se aceptan respaldos antiguos. Los costos anteriores sin clasificación siguen considerándose confirmados, incluido un cero histórico. Para restaurar copias nuevas usa esta versión o una posterior.
 
-MVP sin devoluciones, cancelaciones, gastos, borrado de operaciones, impresión de tickets ni sincronización. Un cobro confirmado no tiene deshacer: revisa el importe antes de confirmar. Para corregir datos históricos hay que restaurar una copia anterior; no se recomienda editar el JSON manualmente. Las sumas libres no descuentan inventario. No hay integración con tarjetas ni terminales: Cobrar es un registro manual.
+## Límites del almacenamiento local
 
-## Archivos
+Cada dispositivo, navegador y perfil mantiene registros separados. Modo incógnito, limpieza del navegador, falta de espacio, pérdida del equipo o cambios de dominio pueden causar pérdida o inaccesibilidad. La solicitud de almacenamiento persistente depende del navegador y no sustituye respaldos.
 
-- `src/main.jsx`: pantallas y acciones.
-- `src/domain.js`: importes en centavos, ventas, abonos y validación.
-- `src/db.js`: persistencia IndexedDB mediante transacciones.
-- `src/style.css`: diseño oscuro adaptable inspirado en las siete capturas.
-- `public/icons`: iconos Android normales y maskable.
-- `vite.config.js`: build, manifiesto PWA y caché offline.
-- `tests/domain.test.js`: comprobaciones de reglas financieras.
-- `.github/workflows/pages.yml`: publicación automática.
+Las carpetas de GitHub Pages bajo un mismo dominio comparten origen. Dos copias de Dulcería bajo el mismo origen usan `dulceria-local-v1` y compartirán datos; para negocios separados usa orígenes distintos. Otras pestañas se actualizan al guardar y al recuperar el foco; las transacciones evitan escrituras perdidas. El borrador principal es compartido por origen en localStorage: evita atender ventas distintas simultáneamente en varias pestañas.
 
-Para una actualización, exporta tus datos primero y conserva el nombre de la base y el esquema. Los archivos de caché se actualizan sin borrar IndexedDB.
+Sin usuarios remotos ni contraseña ficticia. Quien tenga acceso al teléfono desbloqueado puede abrir sus registros. El sitio público no sube tu información a GitHub. No hay devoluciones, cancelaciones, gastos, impresión ni borrado de operaciones: revisa antes de confirmar. Para una corrección histórica conserva una copia y restaura una anterior si corresponde.
 
+## Desarrollo y GitHub Pages
 
+Requiere Node.js 22.12 o posterior, LTS. Extrae el ZIP o clona el repositorio y ejecuta:
+
+```sh
+npm install
+npm run dev
+```
+
+Abre la URL que muestra Vite; no abras `index.html` con doble clic. Para comprobar:
+
+```sh
+npm test
+npm run build
+npm run preview
+```
+
+El ZIP incluye fuente y `dist` compilado; GitHub genera `dist` durante el despliegue. No subas node_modules ni respaldos. Para reproducir exactamente las dependencias del servidor usa pnpm 11.25.0 y `pnpm install --frozen-lockfile` (la versión está fijada en el workflow). `npm run format` ordena el código y `npm run format:check` comprueba el formato.
+
+En Settings → Pages selecciona GitHub Actions. `.github/workflows/pages.yml` instala, prueba, compila y publica `dist` al actualizar `main`; también admite ejecución manual. Las rutas relativas permiten publicar bajo `/dulceria/` o en raíz. Las secciones no cambian la ruta: no necesitan reglas especiales de redirección.
+
+Referencias: [Vite y Pages](https://vite.dev/guide/static-deploy#github-pages), [workflows de Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [contextos seguros](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts). La instalación y el service worker requieren HTTPS, salvo localhost. HTTP en una IP de red sirve para probar la interfaz.
+
+El código está separado en componentes de calculadora, cobros, diálogos, historial, productos, resumen y respaldos; `domain.js` concentra las reglas de dinero e inventario, `db.js` las transacciones y `analytics.js` los periodos y búsquedas. `tests/` cubre reglas y persistencia con un simulador IndexedDB.
