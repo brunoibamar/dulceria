@@ -1,0 +1,3 @@
+import {empty,validate} from './domain';
+const dbp=new Promise((resolve,reject)=>{const r=indexedDB.open('dulceria-local-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('data');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+export async function transact(change){const db=await dbp;return new Promise((resolve,reject)=>{const tx=db.transaction('data',change?'readwrite':'readonly');const store=tx.objectStore('data');const r=store.get('main');let next;let cause;r.onsuccess=()=>{try{next=r.result||empty();if(change){next=validate(change(structuredClone(next)));store.put(next,'main');}}catch(e){cause=e;tx.abort();}};tx.oncomplete=()=>resolve(next);tx.onabort=()=>reject(cause||tx.error||Error('No se pudo guardar.'));tx.onerror=()=>{};});}
