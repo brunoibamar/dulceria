@@ -1,3 +1,4 @@
+import { validateFinance } from './finance.js';
 // Amounts are integer centavos. Existing schema-1 data remains compatible.
 export const MAX_AMOUNT = 10_000_000_000;
 const integer = (n) => Number.isSafeInteger(n) && n >= 0;
@@ -277,5 +278,6 @@ export function validate(d) {
       typeof x.note !== 'string'
     )
       throw Error('Movimiento inválido.');
+  validateFinance(d, ids);
   return d;
 }

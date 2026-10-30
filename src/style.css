@@ -874,6 +874,29 @@ footer span {
   margin: 12vh auto;
   padding: 30px;
 }
+.finance-balance .big {
+  font-size: 42px !important;
+}
+.finance-balance p {
+  max-width: 580px;
+}
+.finance-method p {
+  font-size: 12px;
+}
+.finance-method {
+  margin: 22px 0;
+}
+@media (max-width: 780px) {
+  .finance-balance .big {
+    font-size: 36px !important;
+  }
+  nav button {
+    font-size: 8px;
+  }
+  .finance-balance button {
+    min-height: 48px;
+  }
+}
 .startup .logo {
   margin-bottom: 24px;
 }

@@ -24,6 +24,8 @@ import Modal from './Modal';
 import { CashPayment, DirectCharge, PaymentForm } from './Payments';
 import HistoryList from './HistoryList';
 import Dashboard from './Dashboard';
+import Finance, { WithdrawalForm, BusinessMovementForm } from './Finance.jsx';
+import { recordWithdrawal, recordBusinessMovement } from './finance.js';
 import Backup from './Backup';
 import ErrorBoundary from './ErrorBoundary';
 import './style.css';
@@ -33,6 +35,7 @@ const tabs = [
   ['deudores', '♧', 'Deudores'],
   ['inventario', '▦', 'Inventario'],
   ['dashboard', '▥', 'Resumen'],
+  ['ganancias', '↗', 'Ganancias'],
   ['respaldo', '↧', 'Respaldo'],
 ];
 const titleFor = (m) =>
@@ -48,6 +51,9 @@ const titleFor = (m) =>
     history: m.person?.name,
     restock: 'Reponer mercancía',
     import: 'Restaurar respaldo',
+    withdraw: 'Retirar para mi Economía',
+    businessMovement:
+      m.kind === 'reinvestment' ? 'Registrar uso de reinversión' : 'Registrar gasto del negocio',
   })[m.type];
 
 function App() {
@@ -863,6 +869,7 @@ function App() {
         )}
 
         {tab === 'dashboard' && <Dashboard data={data} />}
+        {tab === 'ganancias' && <Finance data={data} busy={busy} onOpen={openModal} />}
         {tab === 'respaldo' && (
           <Backup
             data={data}
@@ -884,7 +891,7 @@ function App() {
           />
         )}
         <footer>
-          Dulcería · v1.1<span>Hecho para tu día a día. ✦</span>
+          Dulcería · v1.2<span>Hecho para tu día a día. ✦</span>
         </footer>
       </main>
 
@@ -928,6 +935,51 @@ function App() {
                 abonar desde Archivados.
               </p>
             </>
+          ) : modal.type === 'withdraw' ? (
+            <WithdrawalForm
+              data={data}
+              busy={busy}
+              onConfirm={async (fields) => {
+                if (
+                  await commit(
+                    (d) =>
+                      recordWithdrawal(d, {
+                        ...fields,
+                        id: modal.operationId,
+                        at: new Date().toISOString(),
+                      }),
+                    'Retiro guardado. Queda pendiente de vincular con Economía.'
+                  )
+                )
+                  setModal(null);
+              }}
+            />
+          ) : modal.type === 'businessMovement' ? (
+            <BusinessMovementForm
+              kind={modal.kind}
+              busy={busy}
+              onConfirm={async (fields) => {
+                try {
+                  const amount = cents(fields.amount);
+                  if (
+                    await commit(
+                      (d) =>
+                        recordBusinessMovement(d, {
+                          ...fields,
+                          amount,
+                          kind: modal.kind,
+                          id: modal.operationId,
+                          at: new Date().toISOString(),
+                        }),
+                      'Movimiento del negocio guardado'
+                    )
+                  )
+                    setModal(null);
+                } catch (e) {
+                  setError(e.message);
+                }
+              }}
+            />
           ) : modal.type === 'cash' ? (
             <CashPayment
               total={total}

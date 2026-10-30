@@ -1,4 +1,12 @@
-# Verificación · Dulcería 1.1
+# Verificación · Dulcería 1.2
+
+Nueva revisión de ganancias:
+
+- 24 pruebas automáticas correctas, incluidas siete de ganancias/retiros: retiro completo y parcial, duplicados, nuevas ventas después del retiro, liberación proporcional de fiado, costos no confirmados, compras frente a gastos, pérdidas y respaldo con ID estable para la futura integración.
+- Prueba del navegador en un origen local independiente con datos ficticios: producto de $900/costo $600; venta de una unidad; $300 disponibles y $600 reservados; retiro de $300; disponible $0, reserva $600, historial de un retiro conservado.
+- Compilación de producción correcta. La aplicación Economía no se creó ni se enviaron datos a ella.
+
+Verificación anterior de la versión 1.1:
 
 - 17 pruebas automáticas: sumas y centavos; fiado y abonos; paquetes y sugerencias; clasificación de costos; edición/archivo; efectivo y cambio; deduplicación de venta; reposición; edición concurrente de stock y precios; búsquedas y periodos locales; transacciones IndexedDB; escrituras concurrentes y recuperación tras restauración.
 - Compilación de producción y generación del manifiesto, iconos y service worker.

@@ -1,4 +1,26 @@
-# Dulcería 🍬 · v1.1
+# Dulcería 🍬 · v1.2
+
+## Ganancias, reinversión y retiros para Economía
+
+El apartado **Ganancias** separa la ganancia bruta histórica, la ganancia disponible para retirar y lo reservado para el negocio. **Retirar para mi Economía** registra cuánto separaste para uso personal y su destino (efectivo o tarjeta). Puedes retirar todo o una parte. Retirar todo deja el disponible en cero; no borra ventas ni reinversión, y nuevas ventas/cobros vuelven a generar disponible.
+
+**Economía todavía no está creada ni conectada.** Cada retiro queda localmente pendiente de vincular con ID único, fecha, importe, destino y nota. No se realiza una transferencia bancaria, no se envían datos a otra app y no se marca una entrega como completada. Solo registra dinero que realmente apartaste. El respaldo JSON incluye estos retiros y los gastos/reinversiones.
+
+El disponible se calcula sobre todo el historial registrado:
+
+- Contado: se reconoce la ganancia con costo confirmado al cobrar.
+- Fiado: los abonos se aplican a las ventas más antiguas del cliente. Se libera ganancia proporcional al importe cobrado, redondeada hacia abajo al centavo. No se libera toda la ganancia al recibir un abono pequeño.
+- Sin costo o con costo estimado: el importe cobrado se reserva dentro del negocio; no habilita ganancia retirable.
+- Los gastos operativos registrados y pérdidas confirmadas reducen el disponible. Los retiros anteriores se descuentan, conservando la ganancia histórica.
+- **Registrar uso de reinversión** descuenta compras para resurtir de la reserva. Si la compra supera esa reserva, la diferencia reduce el disponible. No registres la misma compra también como gasto. El stock y el costo por pieza se actualizan aparte, desde Inventario.
+
+Ejemplo: cobras $900 por mercancía que costó $600 → $300 disponibles y $600 reservados. Retiras $300 → $0 disponibles, $600 reservados y un retiro de $300 conservado en el historial. La cifra histórica de ganancia permanece en $300.
+
+Son saldos calculados, no un arqueo real de caja ni una utilidad fiscal. No se conoce el dinero que ya gastaste antes de registrar movimientos: revisa costos, gastos y compras antes del primer retiro. No se inventa un saldo inicial ni se recalculan costos desconocidos de ventas antiguas al editar un producto actual. Un costo histórico incorrecto seguirá afectando el cálculo.
+
+La conexión futura tiene su contrato en `src/finance.js`: `economyFeed(data)` devuelve `schema: dulceria-economia`, versión 1, moneda MXN y entradas con ID estable `dulceria:<id-del-retiro>`. Economía deberá deduplicar por ese ID; solo se exportan retiros personales, no la reserva de reinversión. El identificador sobrevive en los respaldos. Este contrato no es un servicio HTTP ni un envío automático.
+
+El campo opcional `finance` (versión 1, `withdrawals` y `movements`) mantiene compatibilidad de lectura con datos antiguos. Una copia anterior a esta función no contiene retiros: restaurarla reemplazaría también ese historial, por lo que debes respaldar antes. Usa esta versión o una posterior para restaurar copias con movimientos de negocio.
 
 Punto de venta personal para una dulcería pequeña. React + Vite + JavaScript + CSS, IndexedDB y Android PWA. Sin servidor de datos, cuentas de acceso, analítica, fuentes externas ni sincronización en la nube.
 
