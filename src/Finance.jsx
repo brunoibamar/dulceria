@@ -122,10 +122,13 @@ export default function Finance({ data, busy, onOpen }) {
       <section className="panel">
         <h2>Tu conexión con Economía</h2>
         <p>
-          Por ahora, cada retiro queda guardado aquí como <b>pendiente de vincular</b>, con
-          identificador, fecha, importe y destino. Cuando creemos Economía, podrá reconocer esos
-          identificadores para no registrar una entrada dos veces.
+          Economía incorpora tus retiros personales al abrirse en este mismo navegador y
+          dispositivo. Reconoce cada identificador para registrar el ingreso una sola vez. La
+          reinversión y los demás datos del negocio permanecen aquí.
         </p>
+        <a href="/economia/" target="_blank" rel="noreferrer">
+          Abrir mi Economía ↗
+        </a>
         <p>
           Esto no mueve dinero entre bancos. Registra el dinero que tú realmente separas del negocio
           para uso personal. La aplicación no comprueba cuánto tienes físicamente en caja.
@@ -174,7 +177,7 @@ export default function Finance({ data, busy, onOpen }) {
               {entry.detail && (
                 <p>
                   {entry.detail}
-                  {entry.source === 'dulceria' ? ' · Pendiente de vincular con Economía' : ''}
+                  {entry.source === 'dulceria' ? ' · Disponible para importar en Economía' : ''}
                 </p>
               )}
               {entry.items?.map((i) => (
@@ -248,8 +251,8 @@ export function WithdrawalForm({ data, busy, onConfirm }) {
         <strong>{money(Math.max(0, available - amount))}</strong>
       </div>
       <p className="hint">
-        El retiro se guardará localmente para la futura conexión. Economía todavía no está creada;
-        no se enviará a otra aplicación ni se hará una transferencia bancaria.
+        El retiro se guardará localmente. Abre Economía en este mismo navegador para que incorpore
+        el ingreso una sola vez. Esto no realiza una transferencia bancaria.
       </p>
       <label className="checkline">
         <input type="checkbox" required />

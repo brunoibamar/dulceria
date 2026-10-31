@@ -1019,7 +1019,7 @@ function App() {
                         id: modal.operationId,
                         at: new Date().toISOString(),
                       }),
-                    'Retiro guardado. Queda pendiente de vincular con Economía.'
+                    'Retiro guardado. Abre Economía en este navegador para incorporar el ingreso.'
                   )
                 )
                   setModal(null);
