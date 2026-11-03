@@ -1443,3 +1443,17 @@ summary:focus-visible {
 .product-matches button {
   margin-top: 8px;
 }
+
+.product-options summary,
+.shopping-list summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: 650;
+}
+.product-options[open] {
+  border-top: 1px solid #ffffff20;
+  margin-top: 12px;
+}
+.shopping-list {
+  margin-bottom: 18px;
+}

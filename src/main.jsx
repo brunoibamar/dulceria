@@ -18,6 +18,9 @@ import { costKind, pricing } from './pricing.js';
 import { historyOf, inPeriod, low, matches } from './analytics.js';
 import { readDraft, readLocal, writeLocal } from './local.js';
 import ProductFields from './ProductFields';
+import RestockFields from './RestockFields.jsx';
+import ShoppingList from './ShoppingList.jsx';
+import { receivePurchase } from './inventory.js';
 import PersonButton from './PersonButton';
 import Calculator from './Calculator';
 import Modal from './Modal';
@@ -221,7 +224,7 @@ function App() {
   }
   function openModal(value) {
     setError('');
-    setModal(value);
+    setModal(value.type === 'restock' ? { ...value, operationId: uid() } : value);
   }
   function go(id) {
     setTab(id);
@@ -330,7 +333,18 @@ function App() {
       if (
         modal.type === 'restock' &&
         (await commit(
-          (d) => restock(d, modal.product.id, Number(f.quantity), f.note),
+          (d) =>
+            f.restockMode === 'purchase'
+              ? receivePurchase(d, {
+                  product: modal.product.id,
+                  quantity: Number(f.quantity),
+                  total: cents(f.purchaseTotal),
+                  method: f.method,
+                  updateCost: f.updateCost === 'on',
+                  note: f.note,
+                  operationId: modal.operationId,
+                })
+              : restock(d, modal.product.id, Number(f.quantity), f.note),
           'Mercancía repuesta'
         ))
       )
@@ -747,6 +761,10 @@ function App() {
                 ＋ Nuevo producto
               </button>
             </div>
+            <ShoppingList
+              products={data.products}
+              onRestock={(product) => openModal({ type: 'restock', product })}
+            />
             <div className="toolbar inventory-toolbar">
               <input
                 aria-label="Buscar producto"
@@ -816,12 +834,6 @@ function App() {
                       : `${costKind(p) === 'estimated' ? 'Ganancia estimada' : 'Ganancia bruta'} por unidad: ${money(p.price - p.cost)}`}
                   </p>
                   <div className="actions">
-                    <button
-                      className="outline"
-                      onClick={() => openModal({ type: 'product', product: p })}
-                    >
-                      Editar producto
-                    </button>
                     {!p.archived && (
                       <button
                         className="green"
@@ -831,29 +843,38 @@ function App() {
                       </button>
                     )}
                   </div>
-                  <button
-                    className="textbutton full"
-                    disabled={busy}
-                    onClick={() => {
-                      if (!p.archived) {
-                        openModal({ type: 'deleteProduct', product: p });
-                        return;
-                      }
-                      commit(
-                        (d) => {
-                          const product = d.products.find((x) => x.id === p.id);
-                          if (!product) throw Error('El producto ya no existe.');
-                          product.archived = !product.archived;
-                          return d;
-                        },
-                        p.archived
-                          ? 'Producto reactivado'
-                          : 'Producto archivado; sus ventas se conservan'
-                      );
-                    }}
-                  >
-                    {p.archived ? 'Reactivar producto' : 'Eliminar producto'}
-                  </button>
+                  <details className="product-options">
+                    <summary>Más opciones</summary>
+                    <button
+                      className="outline"
+                      onClick={() => openModal({ type: 'product', product: p })}
+                    >
+                      Editar producto
+                    </button>
+                    <button
+                      className="textbutton full"
+                      disabled={busy}
+                      onClick={() => {
+                        if (!p.archived) {
+                          openModal({ type: 'deleteProduct', product: p });
+                          return;
+                        }
+                        commit(
+                          (d) => {
+                            const product = d.products.find((x) => x.id === p.id);
+                            if (!product) throw Error('El producto ya no existe.');
+                            product.archived = !product.archived;
+                            return d;
+                          },
+                          p.archived
+                            ? 'Producto reactivado'
+                            : 'Producto archivado; sus ventas se conservan'
+                        );
+                      }}
+                    >
+                      {p.archived ? 'Reactivar producto' : 'Eliminar producto'}
+                    </button>
+                  </details>
                 </section>
               ))}
             </div>
@@ -1215,31 +1236,10 @@ function App() {
                 </p>
               )}
               {modal.type === 'restock' && (
-                <>
-                  <p>
-                    {modal.product.name} ·{' '}
-                    {data.products.find((p) => p.id === modal.product.id)?.stock} unidades actuales
-                  </p>
-                  <label>
-                    Unidades nuevas que recibiste
-                    <input
-                      name="quantity"
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      required
-                    />
-                  </label>
-                  <label>
-                    Nota (opcional)
-                    <input name="note" maxLength={200} placeholder="Ej. Un paquete de 12 piezas" />
-                  </label>
-                  <p className="hint">
-                    Estas unidades se suman a las actuales. El costo se conserva: si cambió,
-                    actualízalo en Editar producto. Este movimiento no registra un gasto de compra.
-                  </p>
-                </>
+                <RestockFields
+                  key={modal.operationId}
+                  product={data.products.find((p) => p.id === modal.product.id) || modal.product}
+                />
               )}
               {modal.type === 'charge' && (
                 <>

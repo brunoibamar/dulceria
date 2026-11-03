@@ -83,7 +83,11 @@ Al crear o editar un producto puedes elegir:
 
 Ejemplo: $120 por 12 piezas → $10 por pieza. Con margen de 30 % sobre venta, sugerido $14.29 o $15 al redondear al peso. A $15, el margen efectivo es 33.3 % antes de gastos. Los cálculos de sugerencias evitan errores de redondeo de punto flotante.
 
-Las existencias al editar son el **total**. El botón de piezas del paquete copia esa cantidad como total; no agrega un lote. **Reponer** suma unidades a las existentes sin sobrescribirlas y guarda una nota. Conserva el costo actual: si cambió la compra, actualízalo en Editar producto. No registra un gasto ni calcula costo promedio por lotes.
+Las existencias al editar son el **total**. El botón de piezas del paquete copia esa cantidad como total; no agrega un lote.
+
+**Reponer → Compra nueva** suma unidades y registra el total pagado como reinversión en una sola operación. Elige efectivo o transferencia. Puedes actualizar el costo por pieza con total / piezas, redondeado al centavo: se usa para ventas futuras, no recalcula ventas anteriores ni es un promedio de lotes. No registres de nuevo ese pago en Ganancias o Caja. Si ya registraste la compra, elige **Solo sumar piezas**: no registra dinero ni cambia el costo.
+
+En cada tarjeta, **Más opciones** despliega Editar producto y Eliminar / Reactivar; Reponer queda visible. La **Lista de compras** reúne productos activos agotados o en su nivel de aviso. Sugiere el mínimo para superar ese nivel, permite abrir Reponer y descargar un archivo de texto para llevar a la compra.
 
 Define cuándo avisar por pocas piezas (por defecto 3). Hay filtros de agotados, por reponer y archivados, y orden por nombre o existencias. Archivar un producto lo quita del catálogo pero conserva stock e historial; puede reactivarse. El valor total del inventario con costo confirmado incluye también esas existencias archivadas.
 
