@@ -415,9 +415,6 @@ function App() {
       const p = data.products.find((p) => p.id === c.product);
       return !p || p.archived || c.qty > p.stock;
     });
-  const backupDue =
-    Boolean(data.sales.length || data.products.length || data.people.length) &&
-    (!lastExport || Date.now() - new Date(lastExport).getTime() > 86400000);
   const currentPerson = modal?.person
     ? data.people.find((p) => p.id === modal.person.id) || modal.person
     : null;
@@ -490,12 +487,6 @@ function App() {
             <button disabled={busy || !!modal} onClick={() => updateServiceWorker(true)}>
               Actualizar aplicación
             </button>
-          </div>
-        )}
-        {backupDue && tab !== 'respaldo' && (
-          <div className="backup-reminder">
-            <span>↧ Cuida tus cuentas: genera un respaldo de tu jornada.</span>
-            <button onClick={() => go('respaldo')}>Ir a respaldos</button>
           </div>
         )}
 

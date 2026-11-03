@@ -105,7 +105,11 @@ Elige Hoy, últimos 7 días (incluye hoy), mes actual o todo el historial. Se us
 
 ## Respaldo y recuperación
 
-Genera un JSON al cerrar la jornada, comprueba que está en Descargas y guárdalo fuera del navegador. La app recuerda cuándo generó el último archivo y muestra un aviso si no has generado uno o pasó un día; **no puede garantizar que conservaste el archivo descargado**.
+En **Respaldo → Archivos mensuales en tu teléfono**, elige mes. Genera un informe HTML legible sin conexión (ventas, partidas, abonos, inventario, compras, retiros, consumos y caja), detalle mensual JSON y una copia completa restaurable. El informe y detalle mensual no se pueden restaurar como base; la copia completa conserva todo el historial.
+
+Si el navegador permite elegir carpeta, la aplicación escribe los tres archivos en `año/mes` y comprueba su contenido después de guardarlos. Cada nombre incluye fecha de generación. En otros navegadores, descarga cada archivo y organízalo desde Archivos. La compatibilidad debe probarse en el teléfono; no se ejecutan copias programadas con la app cerrada ni se conserva permiso permanente sobre una carpeta.
+
+Esta primera prueba **no elimina registros ni libera almacenamiento**. Retirar meses requiere un cierre contable que conserve deudas, asignación de abonos, ganancias, reservas y base de caja. La pantalla muestra tamaños aproximados para evaluar la necesidad. El aviso superior diario se retiró; las herramientas de respaldo permanecen en esta sección.
 
 Para restaurar, elige un JSON de Dulcería (máximo 20 MB), revisa sus cantidades y confirma el reemplazo. No mezcla registros. Se valida antes de escribir. La restauración guarda atómicamente una copia del estado anterior dentro de IndexedDB; en Respaldo aparecerá **Revisar copia anterior a la última restauración**. Puedes recuperarla confirmando ese reemplazo; se conserva entonces la versión que acabas de reemplazar. Solo hay una copia anterior, no un historial ilimitado. Si se borran los datos del navegador, esa copia local también se pierde.
 

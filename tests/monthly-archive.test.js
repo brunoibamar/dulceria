@@ -1,0 +1,35 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { empty, saveProduct, sell, pay, validate, balance } from '../src/domain.js';
+import { monthlyArchive, monthlyHtml, archiveFiles, monthKey } from '../src/monthlyArchive.js';
+test('separa meses por fecha local e incluye detalles y cobros de fiados anteriores', () => {
+  const d = empty();
+  saveProduct(d, { name: '<script>alert(1)</script>', price: 500, cost: 200, stock: 5 });
+  d.people.push({ id: 'ana', name: 'Ana', phone: '', notes: '' });
+  sell(d, { person: 'ana', cart: [{ product: d.products[0].id, qty: 2 }] });
+  d.sales[0].at = new Date(2026, 8, 30, 23, 59).toISOString();
+  pay(d, 'ana', 500);
+  d.payments[0].at = new Date(2026, 9, 1, 0, 0).toISOString();
+  const before = structuredClone(d);
+  const report = monthlyArchive(d, '2026-10');
+  assert.equal(report.sales.length, 0);
+  assert.equal(report.payments.length, 1);
+  assert.equal(monthlyArchive(d, '2026-09').sales[0].items[0].qty, 2);
+  assert.equal(balance(d, 'ana'), 500);
+  assert.deepEqual(d, before);
+  assert.throws(() => monthlyArchive(d, '2026-13'));
+  assert.throws(() => validate(report));
+  const files = archiveFiles(d, '2026-09');
+  validate(JSON.parse(files[2].text));
+  assert.equal(files.length, 3);
+  assert.equal(JSON.parse(files[2].text).sales.length, 1);
+  assert.match(files[0].text, /&lt;script&gt;/);
+  assert.doesNotMatch(files[0].text, /<script>/);
+  assert.match(files[0].text, /Piezas vendidas/);
+});
+test('mes sin operaciones y archivos antiguos sin finanzas son compatibles', () => {
+  const report = monthlyArchive(empty(), '2026-01');
+  assert.deepEqual(report.finance.movements, []);
+  assert.match(monthlyHtml(report), /Sin movimientos/);
+  assert.equal(monthKey(new Date(2026, 0, 1)), '2026-01');
+});

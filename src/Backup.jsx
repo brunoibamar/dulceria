@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { readRecovery } from './db.js';
 import { validate } from './domain.js';
 import { date } from './HistoryList';
+import MonthlyBackup from './MonthlyBackup.jsx';
 export default function Backup({
   data,
   busy,
@@ -26,13 +27,14 @@ export default function Backup({
   }, [data]);
   return (
     <div className="stack narrow">
+      <MonthlyBackup data={data} busy={busy} onNotice={onNotice} onError={onError} />
       <section className="panel pinkglow">
         <span className="tile">↧</span>
         <h2>Tus datos, contigo</h2>
         <p>
-          Genera una copia fuera del navegador al cerrar cada jornada. Incluye productos, cuentas,
-          ventas, abonos, inventario, retiros, gastos, reinversiones, consumos personales y conteos
-          de caja.
+          Conserva una copia completa fuera del navegador para recuperar la aplicación. Incluye
+          productos, cuentas, ventas, abonos, inventario, retiros, gastos, reinversiones, consumos
+          personales y conteos de caja.
         </p>
         <button className="primary full" disabled={busy} onClick={() => onExport(data)}>
           Descargar respaldo JSON
@@ -82,10 +84,17 @@ export default function Backup({
           {data.products.length} productos · {data.people.length} cuentas · {data.sales.length}{' '}
           ventas · {data.payments.length} abonos.
         </p>
+        <p>
+          Tamaño aproximado de tus registros:{' '}
+          {(new Blob([JSON.stringify(data)]).size / 1024 / 1024).toFixed(2)} MB.
+        </p>
         {storage && (
           <small>
             Uso aproximado del sitio: {(storage.usage / 1024 / 1024).toFixed(1)} MB. Incluye los
-            archivos para funcionar sin conexión.
+            archivos para funcionar sin conexión.{' '}
+            {Number.isFinite(storage.quota)
+              ? `Límite estimado: ${(storage.quota / 1024 / 1024).toFixed(0)} MB; uso ${((storage.usage / storage.quota) * 100).toFixed(1)} %. El navegador puede cambiar este límite.`
+              : ''}
           </small>
         )}
         <p>
