@@ -9,9 +9,13 @@ export default function Dashboard({ data }) {
   const now = new Date(),
     sales = data.sales.filter((s) => inPeriod(s.at, period, now)),
     payments = data.payments.filter((p) => inPeriod(p.at, period, now));
-  const profit = profits(sales),
-    revenue = sales.reduce((n, s) => n + s.total, 0),
-    cash = sales.filter((s) => !s.person).reduce((n, s) => n + s.total, 0),
+  const archivedDays = (data.carryover?.daily || []).filter((d) => inPeriod(d.at, period, now));
+  const profit = profits(sales);
+  for (const d of archivedDays) for (const k of ['real', 'estimated', 'unknown']) profit[k] += d[k];
+  const saleCount = sales.length + archivedDays.reduce((n, d) => n + d.count, 0);
+  const archivedTotal = archivedDays.reduce((n, d) => n + d.total, 0);
+  const revenue = sales.reduce((n, s) => n + s.total, archivedTotal),
+    cash = sales.filter((s) => !s.person).reduce((n, s) => n + s.total, archivedTotal),
     paid = payments.reduce((n, p) => n + p.amount, 0);
   const debtors = data.people
       .map((p) => ({ ...p, balance: balance(data, p.id) }))
@@ -21,10 +25,16 @@ export default function Dashboard({ data }) {
   const entries = historyOf(data).filter(
     (s) => inPeriod(s.at, period, now) && matches(`${s.label} ${s.kind} ${s.note ?? ''}`, query)
   );
-  const days = dailySales(data.sales, now),
+  const days = dailySales([...data.sales, ...(data.carryover?.daily || [])], now),
     max = Math.max(1, ...days.map((d) => d.total));
   return (
     <>
+      {data.carryover && (
+        <p className="hint">
+          Los totales incluyen meses archivados. Su detalle está en tu carpeta mensual; las cuentas
+          fiadas se conservan aquí.
+        </p>
+      )}
       <div className="toolbar">
         <p className="intro">Tu negocio de un vistazo</p>
         <select
@@ -130,7 +140,7 @@ export default function Dashboard({ data }) {
           </div>
           <div className="row line">
             <span>Venta promedio</span>
-            <b>{money(sales.length ? Math.round(revenue / sales.length) : 0)}</b>
+            <b>{money(saleCount ? Math.round(revenue / saleCount) : 0)}</b>
           </div>
           <div className="row line">
             <span>Abonos recibidos</span>

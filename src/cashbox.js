@@ -1,7 +1,7 @@
 // Physical cash is reconciled independently from revenue and profit.
 export const cashData = (d) => d.cashbox || { version: 1, counts: [], adjustments: [] };
 export function cashFlows(d) {
-  const flows = [];
+  const flows = (d.carryover?.cash || []).map((f) => ({ ...f }));
   for (const s of d.sales)
     if (!s.person)
       flows.push({
@@ -39,7 +39,7 @@ export function cashSummary(d) {
   return {
     last,
     expected,
-    unknown: since.filter((f) => f.method === 'unknown').length,
+    unknown: since.filter((f) => f.method === 'unknown').reduce((n, f) => n + (f.count || 1), 0),
     transferNet: flows.filter((f) => f.method === 'transfer').reduce((n, f) => n + f.amount, 0),
   };
 }

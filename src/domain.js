@@ -1,3 +1,4 @@
+import { validateCarryover } from './closeValidation.js';
 import { validateFinance } from './finance.js';
 import { validateCashbox } from './cashbox.js';
 // Amounts are integer centavos. Existing schema-1 data remains compatible.
@@ -215,7 +216,7 @@ export function pay(d, id, value, method = 'cash') {
 }
 export function validate(d) {
   const keys = ['products', 'people', 'sales', 'payments', 'stock'];
-  if (!d || d.schema !== 1 || !keys.every((k) => Array.isArray(d[k])))
+  if (!d || ![1, 2].includes(d.schema) || !keys.every((k) => Array.isArray(d[k])))
     throw Error('Respaldo incompatible.');
   const ids = new Set(),
     products = new Set(d.products.map((p) => p?.id)),
@@ -298,6 +299,7 @@ export function validate(d) {
       typeof x.note !== 'string'
     )
       throw Error('Movimiento inválido.');
+  validateCarryover(d);
   validateFinance(d, ids);
   validateCashbox(d, ids);
   return d;

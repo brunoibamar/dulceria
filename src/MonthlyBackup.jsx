@@ -11,6 +11,8 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
   const [saved, setSaved] = useState('');
   function download(index) {
     try {
+      if (data.carryover && month < monthKey(data.carryover.until))
+        throw Error('Ese mes ya está archivado. Consulta el informe en tu carpeta.');
       const file = archiveFiles(data, month)[index];
       const url = URL.createObjectURL(
         new Blob([file.text], { type: file.type + ';charset=utf-8' })
@@ -33,6 +35,8 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
     setSaving(true);
     setSaved('');
     try {
+      if (data.carryover && month < monthKey(data.carryover.until))
+        throw Error('Ese mes ya está archivado. Consulta el informe en tu carpeta.');
       const folder = await window.showDirectoryPicker({ mode: 'readwrite' });
       const files = archiveFiles(data, month);
       const year = await folder.getDirectoryHandle(month.slice(0, 4), { create: true });
@@ -55,7 +59,8 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
     }
   }
   return (
-    <section className="panel pinkglow">
+    <details className="panel" open={typeof window.showDirectoryPicker !== 'function'}>
+      <summary>Descargas manuales por mes</summary>
       <h2>Archivos mensuales en tu teléfono</h2>
       <p>
         Guarda tus ventas, piezas, abonos, compras, retiros, consumos y movimientos de caja por mes.
@@ -101,10 +106,10 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
       </p>
       {saved && <p role="status">{saved}</p>}
       <p className="warning">
-        Esta prueba guarda archivos fuera del navegador, pero todavía no libera su espacio ni borra
-        meses. Caja, deudas y ganancias necesitan el historial completo. No hay guardado programado
-        con la aplicación cerrada.
+        Estas descargas manuales no liberan espacio. Para retirar detalle antiguo usa el cierre
+        automático con carpeta y verificación. Los meses cerrados se consultan desde tu carpeta; no
+        se regeneran aquí.
       </p>
-    </section>
+    </details>
   );
 }

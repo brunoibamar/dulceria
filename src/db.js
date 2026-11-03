@@ -67,3 +67,16 @@ export async function readRecovery() {
     r.onerror = () => reject(r.error);
   });
 }
+
+export async function archiveSetting(value) {
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('data', value === undefined ? 'readonly' : 'readwrite');
+    const store = tx.objectStore('data');
+    const request =
+      value === undefined ? store.get('monthlyFolder') : store.put(value, 'monthlyFolder');
+    tx.oncomplete = () => resolve(value === undefined ? request.result : value);
+    tx.onabort = () => reject(tx.error || Error('No se pudo guardar la carpeta.'));
+    tx.onerror = () => {};
+  });
+}

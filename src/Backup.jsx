@@ -7,6 +7,7 @@ export default function Backup({
   data,
   busy,
   lastExport,
+  monthlyClose,
   onExport,
   onImport,
   install,
@@ -27,6 +28,60 @@ export default function Backup({
   }, [data]);
   return (
     <div className="stack narrow">
+      <section className="panel pinkglow">
+        <h2>Cierre mensual automático</h2>
+        <p>
+          Elige una carpeta para guardar y verificar los meses terminados. Después se retira su
+          detalle del navegador conservando inventario, deudas, ganancias y caja. Las cuentas
+          fiadas, abonos y retiros se conservan para mantener sus cálculos e identificadores.
+        </p>
+        <p>
+          Funciona al abrir la aplicación o mientras permanece abierta. Si el navegador vuelve a
+          pedir permiso, tendrás que autorizarlo aquí. Con la app cerrada no se garantiza la
+          ejecución.
+        </p>
+        {monthlyClose.supported ? (
+          <>
+            <button
+              className="primary full"
+              disabled={busy || monthlyClose.working}
+              onClick={monthlyClose.choose}
+            >
+              {monthlyClose.config?.enabled
+                ? 'Cambiar carpeta'
+                : 'Elegir carpeta y activar cierre automático'}
+            </button>
+            {monthlyClose.config?.enabled && (
+              <>
+                <p>Carpeta: {monthlyClose.config.name}</p>
+                <button disabled={busy || monthlyClose.working} onClick={monthlyClose.resume}>
+                  Autorizar carpeta y comprobar cierre
+                </button>
+                <button disabled={monthlyClose.working} onClick={monthlyClose.pause}>
+                  Desactivar cierre automático
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <p className="warning">
+            Este navegador no permite elegir una carpeta para el cierre automático. Puedes descargar
+            copias manuales; no se retirará ningún detalle automáticamente.
+          </p>
+        )}
+        <p role="status">
+          {monthlyClose.working
+            ? 'Guardando y verificando archivos… Puedes seguir usando la aplicación.'
+            : monthlyClose.status}
+        </p>
+        {data.carryover && (
+          <p>
+            Último cierre hasta {new Date(data.carryover.until).toLocaleDateString('es-MX')} (sin
+            incluir ese día). Detalle guardado en {data.carryover.archivePath}. Los totales
+            archivados siguen incluidos en Resumen.
+          </p>
+        )}
+      </section>
       <MonthlyBackup data={data} busy={busy} onNotice={onNotice} onError={onError} />
       <section className="panel pinkglow">
         <span className="tile">↧</span>

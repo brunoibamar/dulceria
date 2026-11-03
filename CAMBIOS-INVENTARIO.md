@@ -12,3 +12,11 @@
 - Más opciones agrupa editar, eliminar y reactivar en las tarjetas de inventario.
 - Lista automática de compras con mínimos sugeridos, acceso a Reponer y descarga de texto.
 - 34 pruebas, compilación y revisión visual del flujo de compra y menú.
+
+## Cierre mensual automático
+
+- Carpeta recordada en el dispositivo; intento automático al abrir o mantener abierta la app tras cambiar de mes. Solicitud de atención solo si falla el cierre.
+- Archivos mensuales verificados antes de retirar detalle; bases restaurables antes y después del cierre.
+- Conserva inventario, cuentas fiadas, abonos, identidad de retiros, ganancias y referencia de caja. Totales diarios compactos conservan las cifras del Resumen.
+- No se garantiza ejecución con la app cerrada ni permisos permanentes del navegador. La compatibilidad debe comprobarse en el teléfono.
+- 45 pruebas aprobadas, incluida confirmación y restauración en IndexedDB; compilación y formato correctos.

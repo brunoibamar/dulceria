@@ -1,3 +1,4 @@
+import useMonthlyClose from './useMonthlyClose.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useRegisterSW } from 'virtual:pwa-register/react';
@@ -161,6 +162,15 @@ function App() {
   useEffect(() => {
     setError('');
   }, [modal?.type, modal?.person?.id, modal?.product?.id]);
+  const monthlyClose = useMonthlyClose({
+    data,
+    busy: busy || !!modal,
+    clock,
+    onChanged: async () => {
+      channel.current?.postMessage('changed');
+      await reload();
+    },
+  });
   const balances = useMemo(() => {
     const map = new Map(data?.people.map((p) => [p.id, 0]));
     for (const s of data?.sales || [])
@@ -476,6 +486,12 @@ function App() {
             <button aria-label="Cerrar aviso" onClick={() => setNotice('')}>
               ×
             </button>
+          </div>
+        )}
+        {monthlyClose.attention && monthlyClose.config?.enabled && tab !== 'respaldo' && (
+          <div className="alert" role="status">
+            <span>El cierre mensual necesita atención. Tus registros se conservan.</span>
+            <button onClick={() => go('respaldo')}>Revisar cierre</button>
           </div>
         )}
         {refresh && (
@@ -911,6 +927,7 @@ function App() {
           <Backup
             data={data}
             busy={busy}
+            monthlyClose={monthlyClose}
             lastExport={lastExport}
             onExport={exportBackup}
             onImport={(backup) => openModal({ type: 'import', backup })}

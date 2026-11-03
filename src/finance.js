@@ -20,10 +20,11 @@ export function businessSummary(data) {
       if (!left) break;
     }
   }
-  let collected = 0,
-    gross = 0,
-    collectedProfit = 0,
-    uncosted = 0;
+  const base = data.carryover?.finance;
+  let collected = base?.collected || 0,
+    gross = base?.gross || 0,
+    collectedProfit = base?.collectedProfit || 0,
+    uncosted = base?.uncosted || 0;
   for (const sale of data.sales) {
     const received = collectedBySale.get(sale.id),
       margin = sale.items.reduce((n, i) => n + (real(i) ? (i.price - i.cost) * i.qty : 0), 0);
@@ -43,12 +44,15 @@ export function businessSummary(data) {
   const ledger = financeData(data),
     expenses = ledger.movements
       .filter((m) => m.kind === 'expense')
-      .reduce((n, m) => n + m.amount, 0),
+      .reduce((n, m) => n + m.amount, base?.expenses || 0),
     reinvested = ledger.movements
       .filter((m) => m.kind === 'reinvestment')
-      .reduce((n, m) => n + m.amount, 0),
+      .reduce((n, m) => n + m.amount, base?.reinvested || 0),
     withdrawn = ledger.withdrawals.reduce((n, w) => n + w.amount, 0);
-  const personalConsumption = (ledger.consumptions || []).reduce((n, c) => n + c.amount, 0);
+  const personalConsumption = (ledger.consumptions || []).reduce(
+    (n, c) => n + c.amount,
+    base?.personalConsumption || 0
+  );
   const reserve = collected - collectedProfit + personalConsumption,
     reserveShortfall = Math.max(0, reinvested - reserve);
   const net = collectedProfit - expenses - withdrawn - reserveShortfall - personalConsumption;
