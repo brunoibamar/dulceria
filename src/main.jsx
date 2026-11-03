@@ -47,6 +47,7 @@ const titleFor = (m) =>
     person: 'Nueva persona',
     editPerson: 'Editar persona',
     personOptions: m.person?.name,
+    deleteProduct: 'Eliminar producto',
     product: m.product ? 'Editar producto' : 'Nuevo producto',
     pay: 'Registrar abono',
     charge: 'Agregar a una cuenta',
@@ -284,6 +285,17 @@ function App() {
         (await commit((d) => editPerson(d, modal.person.id, f), 'Datos de la cuenta actualizados'))
       )
         setModal(null);
+      if (modal.type === 'deleteProduct') {
+        if (
+          await commit((d) => {
+            const p = d.products.find((p) => p.id === modal.product.id);
+            if (!p) throw Error('El producto ya no existe.');
+            p.archived = true;
+            return d;
+          }, 'Producto eliminado del inventario activo; historial conservado')
+        )
+          setModal(null);
+      }
       if (modal.type === 'product') {
         const { cost, costStatus } = pricing({
           mode: f.costMode,
@@ -822,7 +834,11 @@ function App() {
                   <button
                     className="textbutton full"
                     disabled={busy}
-                    onClick={() =>
+                    onClick={() => {
+                      if (!p.archived) {
+                        openModal({ type: 'deleteProduct', product: p });
+                        return;
+                      }
                       commit(
                         (d) => {
                           const product = d.products.find((x) => x.id === p.id);
@@ -833,10 +849,10 @@ function App() {
                         p.archived
                           ? 'Producto reactivado'
                           : 'Producto archivado; sus ventas se conservan'
-                      )
-                    }
+                      );
+                    }}
                   >
-                    {p.archived ? 'Reactivar producto' : 'Archivar producto'}
+                    {p.archived ? 'Reactivar producto' : 'Eliminar producto'}
                   </button>
                 </section>
               ))}
@@ -1183,7 +1199,21 @@ function App() {
                   </p>
                 </>
               )}
-              {modal.type === 'product' && <ProductFields product={modal.product} />}
+              {modal.type === 'product' && (
+                <ProductFields
+                  key={modal.product?.id || 'new'}
+                  product={modal.product}
+                  products={data.products}
+                  onOpenProduct={(product) => openModal({ type: 'product', product })}
+                />
+              )}
+              {modal.type === 'deleteProduct' && (
+                <p>
+                  ¿Eliminar <strong>{modal.product.name}</strong> del inventario activo? Ya no
+                  aparecerá al vender. Sus ventas y movimientos se conservan. Puedes recuperarlo
+                  desde el filtro Archivados.
+                </p>
+              )}
               {modal.type === 'restock' && (
                 <>
                   <p>
@@ -1245,7 +1275,11 @@ function App() {
                   className="primary"
                   type="submit"
                 >
-                  {busy ? 'Guardando…' : 'Guardar'}
+                  {busy
+                    ? 'Guardando…'
+                    : modal.type === 'deleteProduct'
+                      ? 'Eliminar producto'
+                      : 'Guardar'}
                 </button>
               </div>
             </form>

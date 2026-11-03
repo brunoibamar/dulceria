@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 
-import { money } from './domain.js';
+import { money, normalize } from './domain.js';
 
 import { costKind, pricing } from './pricing.js';
 
-export default function ProductFields({ product }) {
+export default function ProductFields({ product, products = [], onOpenProduct }) {
+  const [name, setName] = useState(product?.name ?? '');
+  const query = normalize(name);
+  const suggestions = query
+    ? products.filter((p) => p.id !== product?.id && normalize(p.name).includes(query))
+    : [];
   const [mode, setMode] = useState(product && costKind(product) !== 'real' ? 'sale' : 'unit');
 
   const [unit, setUnit] = useState(
@@ -36,9 +41,36 @@ export default function ProductFields({ product }) {
     <>
       <label>
         Nombre
-        <input name="name" required maxLength={80} defaultValue={product?.name} autoFocus />
+        <input
+          name="name"
+          required
+          maxLength={80}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
       </label>
 
+      {!!suggestions.length && (
+        <section
+          className="product-matches"
+          aria-label="Productos ya registrados"
+          aria-live="polite"
+        >
+          <strong>¿Ya tienes este producto?</strong>
+          <p>Abre su ficha para editarlo o reponer existencias.</p>
+          {suggestions.slice(0, 6).map((p) => (
+            <button
+              type="button"
+              className="outline full"
+              key={p.id}
+              onClick={() => onOpenProduct(p)}
+            >
+              Abrir ficha: {p.name} · {p.stock} piezas{p.archived ? ' · Archivado' : ''}
+            </button>
+          ))}
+        </section>
+      )}
       <label>
         ¿Cómo conoces el costo?
         <select value={mode} onChange={(e) => setMode(e.target.value)} name="costMode">

@@ -41,7 +41,8 @@ export const normalize = (value) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('es')
-    .trim();
+    .trim()
+    .replace(/\s+/g, ' ');
 export const balance = (d, id) =>
   d.sales.filter((s) => s.person === id).reduce((n, s) => n + s.total, 0) -
   d.payments.filter((p) => p.person === id).reduce((n, p) => n + p.amount, 0);
@@ -94,6 +95,10 @@ export function saveProduct(d, fields, id = null) {
     !integer(product.lowStock)
   )
     throw Error('Revisa el precio, costo y existencias del producto.');
+  if (d.products.some((p) => p.id !== id && normalize(p.name) === normalize(product.name)))
+    throw Error(
+      'Este producto ya está registrado. Abre su ficha para editarlo o reponer mercancía.'
+    );
   const previous = id && d.products.find((p) => p.id === id);
   if (id && !previous) throw Error('El producto ya no existe.');
   if (previous && fields.expectedStock !== undefined) {

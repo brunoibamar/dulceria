@@ -1432,3 +1432,14 @@ summary:focus-visible {
 .personname {
   min-width: 90px;
 }
+
+.product-matches {
+  padding: 14px;
+  border: 1px solid #b597ff70;
+  border-radius: 12px;
+  background: #b597ff14;
+  margin-bottom: 16px;
+}
+.product-matches button {
+  margin-top: 8px;
+}

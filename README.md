@@ -71,6 +71,10 @@ Las búsquedas de nombres y productos ignoran mayúsculas y acentos.
 
 ## Productos e inventario
 
+Al escribir el nombre aparecen coincidencias de productos activos y archivados. **Abrir ficha** carga el producto existente para editarlo; **Reponer** suma mercancía. Se impide guardar nombres duplicados, ignorando acentos, mayúsculas y espacios repetidos.
+
+**Eliminar producto** pide confirmación y lo retira del inventario activo y del catálogo de venta. Conserva stock, ventas y movimientos; puedes recuperarlo desde **Archivados → Reactivar producto**.
+
 Al crear o editar un producto puedes elegir:
 
 1. **Conozco el costo por pieza.** Registra costo unitario y precio de venta.
