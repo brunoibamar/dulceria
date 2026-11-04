@@ -34,6 +34,45 @@ const escape = (value) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
   );
+export function customerGroups(report) {
+  const groups = new Map();
+  function group(id) {
+    const key = id || null;
+    if (!groups.has(key))
+      groups.set(key, {
+        id: key,
+        name: key
+          ? report.people.find((p) => p.id === key)?.name || 'Cliente sin nombre'
+          : 'Contado · sin cliente identificado',
+        sales: [],
+        payments: [],
+        total: 0,
+        paid: 0,
+      });
+    return groups.get(key);
+  }
+  for (const sale of report.sales) {
+    const g = group(sale.person);
+    g.sales.push(sale);
+    g.total += sale.total;
+  }
+  for (const payment of report.payments) {
+    const g = group(payment.person);
+    g.payments.push(payment);
+    g.paid += payment.amount;
+  }
+  for (const g of groups.values()) {
+    g.sales.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+    g.payments.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+  }
+  return [...groups.values()].sort((a, b) =>
+    a.id === null
+      ? 1
+      : b.id === null
+        ? -1
+        : b.total - a.total || a.name.localeCompare(b.name, 'es') || a.id.localeCompare(b.id)
+  );
+}
 export function monthlyHtml(r) {
   const cash = (v) => (v === null || v === undefined ? 'Sin dato' : money(v));
   const date = (v) => new Date(v).toLocaleString('es-MX');
@@ -47,6 +86,41 @@ export function monthlyHtml(r) {
     (rows.length
       ? `<div class="scroll"><table><thead><tr>${headers.map((h) => `<th>${escape(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((v, i) => `<td class="${headers[i].startsWith('Folio') ? 'reference' : ['Total', 'Recibido', 'Cambio', 'Precio unitario', 'Costo unitario', 'Importe', 'Costo total', 'Contado', 'Esperado', 'Diferencia'].includes(headers[i]) ? 'amount' : ''}"><span class="field-label">${escape(headers[i])}</span><span class="field-value">${escape(v === '' || v === undefined ? '—' : v)}</span></td>`).join('')}</tr>`).join('')}</tbody></table></div>`
       : '<p>Sin movimientos en este mes.</p>');
+  const groups = customerGroups(r);
+  const clients =
+    '<h2>Ventas del mes por cliente</h2><p class="report-meta">Ordenados de mayor a menor por el total comprado en este mes. Cada apartado contiene las compras y abonos de ese cliente. El total comprado no es su deuda actual; los abonos pueden pagar compras de meses anteriores. Las ventas de contado no tienen un cliente identificado.</p>' +
+    (groups.length
+      ? groups
+          .map(
+            (g, index) =>
+              `<details class="customer" open><summary><span class="customer-name">${g.id ? `${index + 1}. ` : ''}${escape(g.name)}</span><span class="customer-total">${cash(g.total)}</span><span class="customer-count">${g.sales.length} compra(s) en el mes</span></summary><div class="customer-body"><p><strong>Total comprado: ${cash(g.total)}</strong>${g.id ? ` · Abonos recibidos en el mes: ${cash(g.paid)}` : ''}</p>${table(
+                'Compras',
+                ['Folio', 'Fecha', 'Detalle', 'Total'],
+                g.sales.map((sale) => [
+                  sale.id,
+                  date(sale.at),
+                  sale.items.length
+                    ? sale.items
+                        .map(
+                          (i) =>
+                            `${i.name || product(i.product)}: ${i.qty} × ${cash(i.price)} = ${cash(i.price * i.qty)}`
+                        )
+                        .join('\n')
+                    : `Venta libre (sin productos desglosados): ${sale.note}`,
+                  cash(sale.total),
+                ])
+              )}${
+                g.id
+                  ? table(
+                      'Abonos del cliente',
+                      ['Folio', 'Fecha', 'Importe', 'Método'],
+                      g.payments.map((p) => [p.id, date(p.at), cash(p.amount), method(p.method)])
+                    )
+                  : ''
+              }</div></details>`
+          )
+          .join('')
+      : '<p>Sin compras ni abonos registrados en este mes.</p>');
   const sales = r.sales.reduce((n, s) => n + s.total, 0);
   const collected =
     r.sales.filter((s) => !s.person).reduce((n, s) => n + s.total, 0) +
@@ -64,12 +138,15 @@ export function monthlyHtml(r) {
   );
   return `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dulcería · ${escape(r.month)}</title><style>
 *{box-sizing:border-box}body{font:15px/1.5 system-ui;margin:24px;color:#252035;background:#faf8ff}h1,h2{color:#663194;line-height:1.25}h1{font-size:26px}h2{font-size:21px;margin:28px 0 12px}p{overflow-wrap:break-word}.report-meta{font-size:12px;color:#686174}.report-help{font-size:13px;color:#686174;margin:16px 0}.report-help summary{cursor:pointer}.totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.total-card{padding:14px;border:1px solid #e3d9ef;border-radius:12px;background:#fff}.total-card span{display:block;font-size:12px;color:#686174}.total-card strong{display:block;font-size:22px;color:#54237c;white-space:nowrap}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:700px;background:white}th,td{padding:10px;border:1px solid #e6e0eb;text-align:left;vertical-align:top}th{background:#eee7f5;font-size:12px}.field-value{white-space:pre-wrap;overflow-wrap:break-word}.reference .field-value{font:11px/1.5 ui-monospace,monospace;overflow-wrap:anywhere}.field-label{display:none}.amount .field-value{white-space:nowrap;font-variant-numeric:tabular-nums}
+.customer{background:#fff;border:1px solid #e3d9ef;border-radius:14px;margin:12px 0;overflow:hidden}.customer>summary{cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:16px}.customer-name{font-weight:700;color:#54237c;overflow-wrap:break-word}.customer-name::before{content:"＋ ";font-weight:400}.customer[open] .customer-name::before{content:"− "}.customer-total{font-weight:750;white-space:nowrap}.customer-count{grid-column:1/-1;font-size:12px;color:#766981}.customer-body{padding:0 12px 12px;border-top:1px solid #eee7f5}.customer-body h2{font-size:17px}.all-sales{margin:24px 0}.all-sales>summary{cursor:pointer;color:#663194;font-weight:650}
 @media screen and (max-width:600px){body{margin:12px;font-size:14px}h1{font-size:22px}h2{font-size:18px}.total-card{padding:10px}.total-card strong{font-size:19px}.scroll{overflow:visible}table,tbody{display:block;width:100%;min-width:0;background:transparent}thead{display:none}tr{display:flex;flex-direction:column;background:#fff;border:1px solid #e3d9ef;border-radius:12px;margin-bottom:12px;padding:4px 12px;box-shadow:0 2px 6px #35204b05}td{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr);gap:12px;padding:10px 0;border:0;border-bottom:1px solid #f0ebf4;width:100%}.field-label{display:block;color:#766981;font-size:12px;font-weight:600}.field-value{min-width:0;white-space:normal;word-break:normal;overflow-wrap:break-word;font-weight:500}.reference{order:1;border-bottom:0}.reference .field-value{font-size:10px;color:#85758e}.reference .field-label{font-size:10px}td:not(.reference):last-child{border-bottom:0}}
 @media print{body{margin:0;font-size:10px;background:white}table{min-width:0;font-size:9px}.scroll{overflow:visible}.total-card strong{font-size:16px}.report-help{display:none}h2{break-after:avoid}tr{break-inside:avoid}}
 </style>
   <h1>Dulcería · Informe ${escape(r.month)}</h1><p class="report-meta">Generado: ${escape(date(r.exportedAt))} · Zona del dispositivo: ${escape(r.timezone)}</p>
   <div class="totals"><div class="total-card"><span>Ventas del mes</span><strong>${cash(sales)}</strong></div><div class="total-card"><span>Cobros del mes</span><strong>${cash(collected)}</strong></div></div>
   <details class="report-help"><summary>Cómo leer estas cifras</summary><p>Ventas incluye contado y fiado. Cobros incluye contado y abonos recibidos en el mes; no equivale a ganancia ni saldo de caja. Este informe no es un respaldo restaurable. Los nombres de cuentas y catálogo son referencias al momento de exportar.</p></details>
+  ${clients}
+  <details class="all-sales"><summary>Ver detalle general de ventas y abonos</summary>
   ${table(
     'Ventas',
     ['Folio', 'Fecha', 'Cuenta', 'Método', 'Total', 'Recibido', 'Cambio', 'Detalle'],
@@ -90,6 +167,7 @@ export function monthlyHtml(r) {
     ['Folio', 'Fecha', 'Cuenta', 'Importe', 'Método'],
     r.payments.map((p) => [p.id, date(p.at), person(p.person), cash(p.amount), method(p.method)])
   )}
+  </details>
   ${table(
     'Movimientos de inventario',
     ['Folio', 'Fecha', 'Producto', 'Piezas (+/-)', 'Motivo'],
