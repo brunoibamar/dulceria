@@ -158,3 +158,7 @@ En Settings → Pages selecciona GitHub Actions. `.github/workflows/pages.yml` i
 Referencias: [Vite y Pages](https://vite.dev/guide/static-deploy#github-pages), [workflows de Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [contextos seguros](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts). La instalación y el service worker requieren HTTPS, salvo localhost. HTTP en una IP de red sirve para probar la interfaz.
 
 El código está separado en componentes de calculadora, cobros, diálogos, historial, productos, resumen y respaldos; `domain.js` concentra las reglas de dinero e inventario, `db.js` las transacciones y `analytics.js` los periodos y búsquedas. `tests/` cubre reglas y persistencia con un simulador IndexedDB.
+
+## Diseño móvil de reportes
+
+Los reportes muestran tarjetas por movimiento en pantallas estrechas, con etiquetas por dato, importes sin dividir y folios al final. En pantallas grandes e impresión se conservan las tablas. El ajuste también se usa al consultar meses archivados desde su detalle JSON y al volver a descargar el informe.
