@@ -3,6 +3,7 @@ import { readRecovery } from './db.js';
 import { validate } from './domain.js';
 import { date } from './HistoryList';
 import MonthlyBackup from './MonthlyBackup.jsx';
+import ReportViewer from './ReportViewer.jsx';
 export default function Backup({
   data,
   busy,
@@ -28,6 +29,11 @@ export default function Backup({
   }, [data]);
   return (
     <div className="stack narrow">
+      <ReportViewer
+        data={data}
+        folder={monthlyClose.config?.folder}
+        busy={busy || monthlyClose.working}
+      />
       <section className="panel pinkglow">
         <h2>Cierre mensual automático</h2>
         <p>

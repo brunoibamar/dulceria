@@ -105,6 +105,11 @@ Elige Hoy, últimos 7 días (incluye hoy), mes actual o todo el historial. Se us
 
 ## Respaldo y recuperación
 
+
+**Consultar reporte mensual:** al inicio de Respaldo, selecciona mes y pulsa **Ver reporte del mes**. El mes actual y los meses no cerrados se calculan desde los registros locales; no necesitas esperar al cierre para consultarlos. Un mes sin ventas muestra esa situación explícitamente. Para meses cerrados, se usa la carpeta recordada del cierre, solicitando lectura si el navegador revocó el permiso. El reporte aparece dentro de la aplicación y **Descargar este reporte** guarda el mismo informe mostrado.
+
+Los cierres nuevos guardan la ruta exacta de cada mes. Los archivos de cierres anteriores siguen siendo legibles mediante búsqueda de informes verificados en la carpeta del mes; también se reconocen detalles JSON generados con la exportación manual. Si faltan o están dañados, se muestra un error y no se sustituyen por un informe vacío. La consulta no restaura ni cambia los registros de ventas.
+
 En **Respaldo → Archivos mensuales en tu teléfono**, elige mes. Genera un informe HTML legible sin conexión (ventas, partidas, abonos, inventario, compras, retiros, consumos y caja), detalle mensual JSON y una copia completa restaurable. El informe y detalle mensual no se pueden restaurar como base; la copia completa conserva todo el historial.
 
 Si el navegador permite elegir carpeta, la aplicación escribe los tres archivos en `año/mes` y comprueba su contenido después de guardarlos. Cada nombre incluye fecha de generación. En otros navegadores, descarga cada archivo y organízalo desde Archivos. La compatibilidad debe probarse en el teléfono; no se ejecutan copias programadas con la app cerrada ni se conserva permiso permanente sobre una carpeta.

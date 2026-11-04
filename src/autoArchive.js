@@ -29,6 +29,10 @@ export async function archiveOne(
   const run = `cierre-${uid()}`;
   const target = await monthFolder.getDirectoryHandle(run, { create: true });
   next.carryover.archivePath = `${month.slice(0, 4)}/${month}/${run}`;
+  next.carryover.archiveIndex = {
+    ...before.carryover?.archiveIndex,
+    [month]: next.carryover.archivePath,
+  };
   const report = monthlyArchive(before, month, now);
   const snapshot = JSON.stringify(before);
   const files = [

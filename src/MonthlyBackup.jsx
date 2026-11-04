@@ -12,7 +12,9 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
   function download(index) {
     try {
       if (data.carryover && month < monthKey(data.carryover.until))
-        throw Error('Ese mes ya está archivado. Consulta el informe en tu carpeta.');
+        throw Error(
+          'Usa Consultar reporte mensual al inicio de esta pantalla para ver o descargar ese mes.'
+        );
       const file = archiveFiles(data, month)[index];
       const url = URL.createObjectURL(
         new Blob([file.text], { type: file.type + ';charset=utf-8' })
@@ -36,7 +38,9 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
     setSaved('');
     try {
       if (data.carryover && month < monthKey(data.carryover.until))
-        throw Error('Ese mes ya está archivado. Consulta el informe en tu carpeta.');
+        throw Error(
+          'Usa Consultar reporte mensual al inicio de esta pantalla para ver o descargar ese mes.'
+        );
       const folder = await window.showDirectoryPicker({ mode: 'readwrite' });
       const files = archiveFiles(data, month);
       const year = await folder.getDirectoryHandle(month.slice(0, 4), { create: true });
@@ -106,9 +110,8 @@ export default function MonthlyBackup({ data, busy, onNotice, onError }) {
       </p>
       {saved && <p role="status">{saved}</p>}
       <p className="warning">
-        Estas descargas manuales no liberan espacio. Para retirar detalle antiguo usa el cierre
-        automático con carpeta y verificación. Los meses cerrados se consultan desde tu carpeta; no
-        se regeneran aquí.
+        Para ver o descargar meses cerrados, usa Consultar reporte mensual al inicio de esta
+        pantalla. Estas herramientas son para exportar copias manuales de los registros actuales.
       </p>
     </details>
   );

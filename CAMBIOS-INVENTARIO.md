@@ -20,3 +20,10 @@
 - Conserva inventario, cuentas fiadas, abonos, identidad de retiros, ganancias y referencia de caja. Totales diarios compactos conservan las cifras del Resumen.
 - No se garantiza ejecución con la app cerrada ni permisos permanentes del navegador. La compatibilidad debe comprobarse en el teléfono.
 - 45 pruebas aprobadas, incluida confirmación y restauración en IndexedDB; compilación y formato correctos.
+
+## Consulta de reportes dentro de la aplicación
+
+- Selector de mes en Respaldo para ver y descargar el informe mostrado.
+- Lectura de cierres desde la carpeta guardada y comprobación de su detalle; meses abiertos desde los datos actuales, sin esperar a terminar el mes.
+- Mensajes específicos para meses sin ventas, carpeta sin permiso y archivos faltantes o dañados.
+- 49 pruebas aprobadas y compilación correcta.
