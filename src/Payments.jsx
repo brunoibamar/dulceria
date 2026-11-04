@@ -1,9 +1,12 @@
+import CustomerPicker from './CustomerPicker.jsx';
 import React, { useState } from 'react';
 import Calculator from './Calculator';
 import { balance, cashChange, cents, money, sum, uid } from './domain.js';
-export function CashPayment({ total, busy, onConfirm }) {
+export function CashPayment({ total, busy, onConfirm, people = [] }) {
   const [received, setReceived] = useState((total / 100).toFixed(2));
   const [method, setMethod] = useState('cash');
+  const [buyer, setBuyer] = useState({});
+  const hasBuyer = buyer.customer || buyer.newCustomerName?.trim();
   let cash = null;
   try {
     cash = cashChange(total, received);
@@ -12,12 +15,13 @@ export function CashPayment({ total, busy, onConfirm }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (method === 'transfer' || cash)
-          onConfirm(method === 'cash' ? cash.received : null, method);
+        if (hasBuyer && (method === 'transfer' || cash))
+          onConfirm(method === 'cash' ? cash.received : null, method, buyer);
       }}
     >
       <p>Total a cobrar</p>
       <h2 className="big mint">{money(total)}</h2>
+      <CustomerPicker people={people} value={buyer} onChange={setBuyer} busy={busy} />
       <label>
         Método de pago
         <select value={method} onChange={(e) => setMethod(e.target.value)}>
@@ -66,7 +70,11 @@ export function CashPayment({ total, busy, onConfirm }) {
       <p className="hint">
         Confirma solo cuando recibas el dinero. Es un registro manual, no un cobro con tarjeta.
       </p>
-      <button type="submit" className="green full" disabled={busy || (method === 'cash' && !cash)}>
+      <button
+        type="submit"
+        className="green full"
+        disabled={busy || !hasBuyer || (method === 'cash' && !cash)}
+      >
         {busy ? 'Guardando…' : 'Confirmar cobro'}
       </button>
     </form>

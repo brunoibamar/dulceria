@@ -52,7 +52,7 @@ export function customerGroups(report) {
     return groups.get(key);
   }
   for (const sale of report.sales) {
-    const g = group(sale.person);
+    const g = group(sale.customer || sale.person);
     g.sales.push(sale);
     g.total += sale.total;
   }
@@ -88,17 +88,20 @@ export function monthlyHtml(r) {
       : '<p>Sin movimientos en este mes.</p>');
   const groups = customerGroups(r);
   const clients =
-    '<h2>Ventas del mes por cliente</h2><p class="report-meta">Ordenados de mayor a menor por el total comprado en este mes. Cada apartado contiene las compras y abonos de ese cliente. El total comprado no es su deuda actual; los abonos pueden pagar compras de meses anteriores. Las ventas de contado no tienen un cliente identificado.</p>' +
+    '<h2>Ventas del mes por cliente</h2><p class="report-meta">Ordenados de mayor a menor por el total comprado en este mes. Cada apartado contiene las compras y abonos de ese cliente. El total comprado no es su deuda actual; los abonos pueden pagar compras de meses anteriores. Las ventas antiguas sin cliente asignado se muestran al final.</p>' +
     (groups.length
       ? groups
           .map(
             (g, index) =>
               `<details class="customer" open><summary><span class="customer-name">${g.id ? `${index + 1}. ` : ''}${escape(g.name)}</span><span class="customer-total">${cash(g.total)}</span><span class="customer-count">${g.sales.length} compra(s) en el mes</span></summary><div class="customer-body"><p><strong>Total comprado: ${cash(g.total)}</strong>${g.id ? ` · Abonos recibidos en el mes: ${cash(g.paid)}` : ''}</p>${table(
                 'Compras',
-                ['Folio', 'Fecha', 'Detalle', 'Total'],
+                ['Folio', 'Fecha', 'Estado', 'Detalle', 'Total'],
                 g.sales.map((sale) => [
                   sale.id,
                   date(sale.at),
+                  sale.person
+                    ? 'Fiado'
+                    : `Pagado · ${method(sale.method || (sale.received !== undefined ? 'cash' : null))}`,
                   sale.items.length
                     ? sale.items
                         .map(
@@ -153,7 +156,7 @@ export function monthlyHtml(r) {
     r.sales.map((s) => [
       s.id,
       date(s.at),
-      person(s.person),
+      person(s.customer || s.person),
       s.person ? 'Fiado' : method(s.method || (s.received !== undefined ? 'cash' : null)),
       cash(s.total),
       cash(s.received),

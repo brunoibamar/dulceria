@@ -30,7 +30,7 @@ export function historyOf(data) {
   return [
     ...data.sales.map((s) => ({
       ...s,
-      label: s.person ? names.get(s.person) : 'Venta de contado',
+      label: s.person || s.customer ? names.get(s.person || s.customer) : 'Venta de contado',
       kind: s.person ? 'Cargo' : 'Venta',
     })),
     ...data.payments.map((p) => ({

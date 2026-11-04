@@ -1457,3 +1457,22 @@ summary:focus-visible {
 .shopping-list {
   margin-bottom: 18px;
 }
+
+.customer-picker {
+  border: 1px solid #b597ff50;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 18px 0;
+  min-width: 0;
+}
+.customer-picker legend {
+  font-weight: 700;
+  padding: 0 8px;
+}
+.customer-results {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 240px;
+  overflow-y: auto;
+}

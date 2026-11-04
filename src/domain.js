@@ -158,12 +158,15 @@ export function sell(
     operationId = null,
     expectedTotal = null,
     method = 'cash',
+    customer = null,
   }
 ) {
   if (operationId && d.sales.some((s) => s.id === operationId))
     throw Error('Esta venta ya está registrada. Revisa el historial antes de repetirla.');
   if (person && !d.people.some((p) => p.id === person && !p.archived))
     throw Error('Elige una persona activa válida.');
+  if (customer && (person || !d.people.some((p) => p.id === customer)))
+    throw Error('Selecciona un cliente válido para la venta pagada.');
   const items = cart.map((c) => {
     const p = d.products.find((p) => p.id === c.product);
     if (!p || p.archived || !integer(c.qty) || !c.qty || c.qty > p.stock)
@@ -200,11 +203,30 @@ export function sell(
     total,
     person,
     method: person ? null : method,
+    ...(customer ? { customer } : {}),
     items,
     note: items.length ? 'Catálogo' : expression,
     ...cash,
   });
   return d;
+}
+export function sellPaid(data, fields) {
+  const next = structuredClone(data);
+  let customer = fields.customer;
+  if (fields.newCustomerName !== undefined && fields.newCustomerName !== null) {
+    const customerName = name(fields.newCustomerName);
+    const existing = next.people.filter((p) => normalize(p.name) === normalize(customerName));
+    if (existing.length > 1)
+      throw Error('Hay varias personas con ese nombre. Selecciona la cuenta correcta.');
+    if (existing.length) customer = existing[0].id;
+    else {
+      customer = uid();
+      next.people.push({ id: customer, name: customerName, phone: '', notes: '' });
+    }
+  }
+  if (!customer || !next.people.some((p) => p.id === customer))
+    throw Error('Indica quién está pagando antes de confirmar.');
+  return sell(next, { ...fields, person: null, customer });
 }
 export function pay(d, id, value, method = 'cash') {
   person(d, id);
@@ -247,6 +269,11 @@ export function validate(d) {
   }
   const balances = new Map(d.people.map((p) => [p.id, 0]));
   for (const s of d.sales) {
+    if (
+      s.customer !== undefined &&
+      (typeof s.customer !== 'string' || !people.has(s.customer) || s.person)
+    )
+      throw Error('Cliente de venta pagada inválido.');
     if (
       s.method !== undefined &&
       !(s.person ? s.method === null : ['cash', 'transfer'].includes(s.method))

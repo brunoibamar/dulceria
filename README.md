@@ -164,3 +164,9 @@ El código está separado en componentes de calculadora, cobros, diálogos, hist
 Los reportes muestran tarjetas por movimiento en pantallas estrechas, con etiquetas por dato, importes sin dividir y folios al final. En pantallas grandes e impresión se conservan las tablas. El ajuste también se usa al consultar meses archivados desde su detalle JSON y al volver a descargar el informe.
 
 El mismo informe mensual incluye apartados por cliente, ordenados de mayor a menor por el total comprado en ese mes. Cada apartado muestra sus compras y abonos; estos últimos no se suman a las compras para ordenar ni se presentan como deuda actual. Las ventas sin cliente identificado quedan juntas al final. Puedes plegar los apartados; el detalle general continúa disponible en el mismo reporte. También funciona al consultar meses archivados y volver a descargar el informe.
+
+## Cliente al cobrar
+
+En **Nueva venta → Cobrar**, selecciona quién paga: busca por nombre/teléfono o pulsa **Registrar cliente aquí** para escribir su nombre sin salir del cobro. La confirmación guarda la venta y el cliente nuevo juntos; si el cobro falla no queda una cuenta nueva suelta. Si ya existe un único nombre equivalente se reutiliza; si hay varias cuentas con ese nombre, se pide seleccionar la correcta.
+
+La venta pagada guarda su cliente separado del destinatario de un fiado. No aumenta deuda ni paga deudas anteriores. Funciona con efectivo y transferencia; el nombre aparece en el historial y las compras pagadas se suman al apartado del cliente en el reporte mensual. Los clientes archivados pueden pagar sin reactivar su cuenta. Las ventas antiguas sin cliente no se asignan automáticamente. Los abonos a deudas siguen registrándose desde Abonar.

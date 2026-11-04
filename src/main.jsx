@@ -11,6 +11,7 @@ import {
   pay,
   saveProduct,
   sell,
+  sellPaid,
   sum,
   uid,
   restock,
@@ -212,11 +213,12 @@ function App() {
     setTarget('');
     setOperationId(uid());
   }
-  async function checkout(person = null, received = null, method = 'cash') {
+  async function checkout(person = null, received = null, method = 'cash', buyer = {}) {
     if (
       await commit(
         (d) =>
-          sell(d, {
+          (person ? sell : sellPaid)(d, {
+            ...buyer,
             expression: expr,
             cart: catalog ? cart : [],
             person,
@@ -1100,7 +1102,8 @@ function App() {
             <CashPayment
               total={total}
               busy={busy}
-              onConfirm={(received, method) => checkout(null, received, method)}
+              people={data.people}
+              onConfirm={(received, method, buyer) => checkout(null, received, method, buyer)}
             />
           ) : modal.type === 'directCharge' ? (
             <DirectCharge
@@ -1190,7 +1193,9 @@ function App() {
                 </button>
               </div>
               <HistoryList
-                entries={history.filter((s) => s.person === currentPerson.id)}
+                entries={history.filter(
+                  (s) => s.person === currentPerson.id || s.customer === currentPerson.id
+                )}
                 products={data.products}
               />
             </>
