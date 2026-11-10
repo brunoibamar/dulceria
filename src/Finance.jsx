@@ -33,10 +33,11 @@ export default function Finance({ data, busy, onOpen }) {
       <p className="intro">Aparta lo que es del negocio y retira tu ganancia cuando tú decidas.</p>
       <section className="banner finance-balance">
         <div>
-          <small>GANANCIA DISPONIBLE PARA RETIRAR</small>
+          <small>APARTADO PARA MÍ · GANANCIA ACUMULADA</small>
           <h2 className="big mint">{money(summary.available)}</h2>
           <p>
-            Ya cobrada, con costos confirmados, descontando los movimientos y retiros registrados.
+            Ganancia ya cobrada, con costos confirmados, menos gastos, consumos personales y
+            retiros. Reinvertir en mercancía no reduce este acumulado.
           </p>
         </div>
         <button
@@ -48,8 +49,13 @@ export default function Finance({ data, busy, onOpen }) {
         </button>
       </section>
       <p className="hint">
-        Si retiras todo, este disponible queda en cero. Las siguientes ventas y cobros lo irán
-        aumentando; el historial nunca se borra.
+        Puedes dejar tu ganancia dentro del negocio: las siguientes ventas y cobros la seguirán
+        aumentando. Un retiro parcial descuenta solo ese importe; retirar todo deja el apartado en
+        cero. El historial nunca se borra.
+      </p>
+      <p className="hint">
+        Este apartado no equivale al efectivo en caja: parte puede estar invertida en mercancía.
+        Revisa Caja antes de separar dinero para ti.
       </p>
       <div className="cards">
         <section className="panel">
@@ -144,9 +150,9 @@ export default function Finance({ data, busy, onOpen }) {
         </p>
         <p>
           Las sumas libres y costos estimados no generan ganancia retirable. Las compras para
-          resurtir se descuentan de la reserva; si la superan, la diferencia reduce la ganancia
-          disponible. Los gastos operativos reducen la ganancia. No registres una misma compra
-          también como gasto.
+          resurtir se descuentan de la reserva y del dinero del negocio, incluso si superan esa
+          reserva, pero no del apartado para ti. Los gastos operativos y el consumo personal de
+          mercancía sí reducen la ganancia. No registres una misma compra también como gasto.
         </p>
         <p>
           Se usa todo tu historial registrado, sin inventar un saldo inicial. Antes del primer
@@ -212,7 +218,11 @@ export function WithdrawalForm({ data, busy, onConfirm }) {
       }}
     >
       <p>
-        Disponible: <b className="mint">{money(available)}</b>
+        Apartado para ti: <b className="mint">{money(available)}</b>
+      </p>
+      <p className="hint">
+        Parte de esta ganancia puede estar invertida en mercancía. Registra solo el dinero que
+        realmente vas a separar para ti y revisa que esté disponible en caja o en tu cuenta.
       </p>
       <label>
         Importe que retiras ($)
@@ -247,7 +257,7 @@ export function WithdrawalForm({ data, busy, onConfirm }) {
         <input name="note" maxLength={500} placeholder="Ej. Retiro de mi ganancia de la semana" />
       </label>
       <div className="change" aria-live="polite">
-        <small>DISPONIBLE DESPUÉS DEL RETIRO</small>
+        <small>APARTADO PARA MÍ DESPUÉS DEL RETIRO</small>
         <strong>{money(Math.max(0, available - amount))}</strong>
       </div>
       <p className="hint">
@@ -276,7 +286,7 @@ export function BusinessMovementForm({ kind, busy, onConfirm }) {
     >
       <p>
         {purchase
-          ? 'Registra dinero que ya usaste para comprar mercancía. Se descontará de la reserva del negocio.'
+          ? 'Registra dinero que ya usaste para comprar mercancía. Se descontará del dinero del negocio, sin reducir tu apartado de ganancia acumulada.'
           : 'Registra un gasto operativo ya pagado, por ejemplo transporte o bolsas. Reducirá tu ganancia disponible.'}
       </p>
       <label>

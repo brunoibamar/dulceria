@@ -18,7 +18,7 @@ Respaldo JSON incluye `finance.consumptions` y el campo opcional `cashbox` con s
 
 ## Ganancias, reinversión y retiros para Economía
 
-El apartado **Ganancias** separa la ganancia bruta histórica, la ganancia disponible para retirar y lo reservado para el negocio. **Retirar para mi Economía** registra cuánto separaste para uso personal y su destino (efectivo o tarjeta). Puedes retirar todo o una parte. Retirar todo deja el disponible en cero; no borra ventas ni reinversión, y nuevas ventas/cobros vuelven a generar disponible.
+El apartado **Ganancias** separa la ganancia bruta histórica, el **Apartado para mí · Ganancia acumulada** y lo reservado para el negocio. Reinvertir en mercancía no reduce el apartado para ti, aunque uses dinero de esa ganancia. Las nuevas ventas y cobros siguen sumándose. **Retirar para mi Economía** registra cuánto separaste para uso personal y su destino (efectivo o tarjeta). Un retiro parcial descuenta solo ese importe; retirar todo deja el apartado en cero, sin borrar ventas, compras ni historial. Los gastos, pérdidas y consumos personales conservan su efecto en la ganancia.
 
 **Economía todavía no está creada ni conectada.** Cada retiro queda localmente pendiente de vincular con ID único, fecha, importe, destino y nota. No se realiza una transferencia bancaria, no se envían datos a otra app y no se marca una entrega como completada. Solo registra dinero que realmente apartaste. El respaldo JSON incluye estos retiros y los gastos/reinversiones.
 
@@ -28,7 +28,9 @@ El disponible se calcula sobre todo el historial registrado:
 - Fiado: los abonos se aplican a las ventas más antiguas del cliente. Se libera ganancia proporcional al importe cobrado, redondeada hacia abajo al centavo. No se libera toda la ganancia al recibir un abono pequeño.
 - Sin costo o con costo estimado: el importe cobrado se reserva dentro del negocio; no habilita ganancia retirable.
 - Los gastos operativos registrados y pérdidas confirmadas reducen el disponible. Los retiros anteriores se descuentan, conservando la ganancia histórica.
-- **Registrar uso de reinversión** descuenta compras para resurtir de la reserva. Si la compra supera esa reserva, la diferencia reduce el disponible. No registres la misma compra también como gasto. El stock y el costo por pieza se actualizan aparte, desde Inventario.
+- **Registrar uso de reinversión** descuenta compras para resurtir de la reserva y del dinero del negocio, sin reducir el apartado para ti, incluso cuando la compra supera la reserva. No registres la misma compra también como gasto. El stock y el costo por pieza se actualizan aparte, desde Inventario.
+
+El apartado para ti es ganancia acumulada pendiente de retiro, no efectivo disponible: parte puede estar invertida en mercancía. Consulta Caja y tu cuenta antes de retirar. Por ejemplo, si cobras $680 con un costo confirmado de $400, acumulas $280 para ti. Reinvertir $514 deja $166 del cobro en dinero, pero conserva los $280 acumulados. Solo al registrar un retiro se descuenta ese importe del apartado. Este cálculo también aplica a compras anteriores y a saldos conservados por cierres mensuales; no requiere borrar ni volver a registrar movimientos.
 
 Ejemplo: cobras $900 por mercancía que costó $600 → $300 disponibles y $600 reservados. Retiras $300 → $0 disponibles, $600 reservados y un retiro de $300 conservado en el historial. La cifra histórica de ganancia permanece en $300.
 

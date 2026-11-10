@@ -55,7 +55,9 @@ export function businessSummary(data) {
   );
   const reserve = collected - collectedProfit + personalConsumption,
     reserveShortfall = Math.max(0, reinvested - reserve);
-  const net = collectedProfit - expenses - withdrawn - reserveShortfall - personalConsumption;
+  // Reinvesting changes liquidity, not the profit still owed to the owner.
+  // Derive this from the ledger so existing purchases and monthly carryovers also recover it.
+  const net = collectedProfit - expenses - withdrawn - personalConsumption;
   return {
     gross,
     collected,

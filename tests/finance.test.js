@@ -7,6 +7,9 @@ import {
   recordBusinessMovement,
   economyFeed,
 } from '../src/finance.js';
+import { cashSummary, recordCashCount } from '../src/cashbox.js';
+import { receivePurchase } from '../src/inventory.js';
+import { closeMonth } from '../src/monthlyClose.js';
 const when = '2026-10-30T12:00:00.000Z';
 function fixture() {
   const d = empty();
@@ -93,7 +96,7 @@ test('gastos y uso de reinversión se distinguen sin descontar compras dos veces
     kind: 'reinvestment',
     note: 'Otra compra',
   });
-  assert.equal(businessSummary(d).available, 500);
+  assert.equal(businessSummary(d).available, 800);
   assert.equal(businessSummary(d).reserve, 0);
   validate(d);
 });
@@ -104,6 +107,74 @@ test('pérdidas confirmadas reducen lo disponible', () => {
   sell(d, { cart: [{ product: d.products[0].id, qty: 1 }] });
   assert.equal(businessSummary(d).available, 0);
   assert.equal(businessSummary(d).gross, 0);
+});
+
+test('reinvertir $514 conserva el apartado, reduce caja y permite seguir acumulando hasta retirar', () => {
+  const d = fixture();
+  Object.assign(d.products[0], { price: 68000, cost: 40000 });
+  recordCashCount(d, { id: 'initial', at: when, counted: 0 });
+  sell(d, { cart: [{ product: d.products[0].id, qty: 1 }], method: 'cash' });
+  const before = businessSummary(d);
+  assert.equal(cashSummary(d).expected, 68000);
+  assert.equal(before.available, 28000);
+  const next = receivePurchase(d, {
+    product: d.products[0].id,
+    quantity: 10,
+    total: 51400,
+    method: 'cash',
+    updateCost: true,
+    operationId: 'purchase-514',
+  });
+  assert.equal(businessSummary(next).available, 28000);
+  assert.equal(businessSummary(next).reserve, 0);
+  assert.equal(businessSummary(next).reserveShortfall, 11400);
+  assert.equal(businessSummary(next).calculatedCash, 16600);
+  assert.equal(cashSummary(next).expected, 16600);
+  assert.deepEqual(economyFeed(next).entries, []);
+  withdrawal(next, 10000);
+  assert.equal(businessSummary(next).available, 18000);
+  assert.equal(cashSummary(next).expected, 6600);
+  sell(next, { cart: [{ product: next.products[0].id, qty: 1 }], method: 'cash' });
+  const accumulated = 18000 + 68000 - 5140;
+  assert.equal(businessSummary(next).available, accumulated);
+  withdrawal(next, accumulated, 'withdraw-all');
+  assert.equal(businessSummary(next).available, 0);
+  assert.equal(next.finance.movements.length, 1);
+  assert.equal(next.sales.length, 2);
+  validate(next);
+});
+
+test('reinversiones históricas, por transferencia y cierres conservan el apartado al restaurar', () => {
+  const d = fixture();
+  sell(d, { cart: [{ product: d.products[0].id, qty: 2 }], method: 'transfer' });
+  d.sales[0].at = when;
+  d.stock.forEach((entry) => (entry.at = when));
+  // A saved ledger from before the fix needs no migration or invented compensating entries.
+  d.finance = {
+    version: 1,
+    withdrawals: [],
+    movements: [
+      {
+        id: 'old-buy',
+        at: when,
+        amount: 3000,
+        kind: 'reinvestment',
+        method: 'transfer',
+        note: 'Compra anterior',
+      },
+    ],
+  };
+  assert.equal(businessSummary(d).available, 1000);
+  assert.equal(businessSummary(d).calculatedCash, 0);
+  assert.equal(cashSummary(d).transferNet, 0);
+  const closed = closeMonth(d, '2026-10', new Date('2026-11-10T18:00:00Z'));
+  assert.equal(closed.finance.movements.length, 0);
+  const restored = JSON.parse(JSON.stringify(closed));
+  validate(restored);
+  assert.deepEqual(businessSummary(restored), businessSummary(d));
+  assert.equal(businessSummary(restored).available, 1000);
+  withdrawal(restored, 400);
+  assert.equal(businessSummary(restored).available, 600);
 });
 test('respaldo antiguo compatible y retiros incluidos con identificador estable', () => {
   const d = fixture();
