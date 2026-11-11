@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { money } from './domain.js';
 export const date = (value) =>
   new Date(value).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
-export default function HistoryList({ entries, products, limit = 20 }) {
+export default function HistoryList({ entries, products, limit = 20, onVoid }) {
   const [count, setCount] = useState(limit);
   return (
     <>
@@ -14,7 +14,7 @@ export default function HistoryList({ entries, products, limit = 20 }) {
             <span className="receipt-label">
               <b>{s.label || s.kind}</b>
               <small>
-                {s.kind} · {date(s.at)}
+                {s.voided ? 'Venta anulada' : s.kind} · {date(s.at)}
               </small>
             </span>
             <strong className={s.kind === 'Abono' ? 'mint' : 'pink'}>{money(s.total)}</strong>
@@ -45,6 +45,16 @@ export default function HistoryList({ entries, products, limit = 20 }) {
               <p>
                 Recibido: {money(s.received)} · Cambio: {money(s.change)}
               </p>
+            )}
+            {s.voided && (
+              <p>
+                Anulada el {date(s.voided.at)} · {s.voided.note}
+              </p>
+            )}
+            {onVoid && s.kind !== 'Abono' && !s.voided && (
+              <button className="outline" onClick={() => onVoid(s.id)}>
+                Anular venta
+              </button>
             )}
             <small>Registro local · {s.id.slice(0, 8)}</small>
           </div>

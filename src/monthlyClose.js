@@ -20,7 +20,7 @@ export function closeMonth(data, month, now = new Date()) {
   if (data.carryover && cutoff <= data.carryover.until) throw Error('Este mes ya está cerrado.');
   const old = (e) => new Date(e.at) < new Date(cutoff);
   const next = structuredClone(data);
-  const removedSales = next.sales.filter((s) => !s.person && old(s));
+  const removedSales = next.sales.filter((s) => !s.person && !s.voided && old(s));
   const removedMovements = (next.finance?.movements || []).filter(old);
   const removedConsumptions = (next.finance?.consumptions || []).filter(old);
   const totals = businessSummary({
@@ -36,7 +36,7 @@ export function closeMonth(data, month, now = new Date()) {
   const finance = Object.fromEntries(
     financeKeys.map((k) => [k, (data.carryover?.finance[k] || 0) + totals[k]])
   );
-  next.sales = next.sales.filter((s) => s.person || !old(s));
+  next.sales = next.sales.filter((s) => s.person || s.voided || !old(s));
   next.stock = next.stock.filter((s) => !old(s));
   if (next.finance) {
     next.finance.movements = next.finance.movements.filter((s) => !old(s));

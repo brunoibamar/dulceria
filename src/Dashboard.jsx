@@ -3,11 +3,11 @@ import { balance, money } from './domain.js';
 import { costKind, profits } from './pricing.js';
 import { dailySales, historyOf, inPeriod, matches } from './analytics.js';
 import HistoryList from './HistoryList';
-export default function Dashboard({ data }) {
+export default function Dashboard({ data, onVoid }) {
   const [period, setPeriod] = useState('today'),
     [query, setQuery] = useState('');
   const now = new Date(),
-    sales = data.sales.filter((s) => inPeriod(s.at, period, now)),
+    sales = data.sales.filter((s) => !s.voided && inPeriod(s.at, period, now)),
     payments = data.payments.filter((p) => inPeriod(p.at, period, now));
   const archivedDays = (data.carryover?.daily || []).filter((d) => inPeriod(d.at, period, now));
   const profit = profits(sales);
@@ -160,7 +160,12 @@ export default function Dashboard({ data }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <HistoryList key={`${period}-${query}`} entries={entries} products={data.products} />
+        <HistoryList
+          key={`${period}-${query}`}
+          entries={entries}
+          products={data.products}
+          onVoid={onVoid}
+        />
       </section>
     </>
   );

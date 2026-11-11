@@ -2,9 +2,10 @@
 const real = (item) => !item.costStatus || item.costStatus === 'real';
 export const financeData = (data) => data.finance || { version: 1, withdrawals: [], movements: [] };
 export function businessSummary(data) {
-  const collectedBySale = new Map(data.sales.map((s) => [s.id, s.person ? 0 : s.total]));
+  const sales = data.sales.filter((s) => !s.voided);
+  const collectedBySale = new Map(sales.map((s) => [s.id, s.person ? 0 : s.total]));
   const credits = new Map();
-  for (const sale of [...data.sales].sort((a, b) => a.at.localeCompare(b.at))) {
+  for (const sale of sales.sort((a, b) => a.at.localeCompare(b.at))) {
     if (sale.person) {
       if (!credits.has(sale.person)) credits.set(sale.person, []);
       credits.get(sale.person).push(sale);
@@ -25,7 +26,7 @@ export function businessSummary(data) {
     gross = base?.gross || 0,
     collectedProfit = base?.collectedProfit || 0,
     uncosted = base?.uncosted || 0;
-  for (const sale of data.sales) {
+  for (const sale of sales) {
     const received = collectedBySale.get(sale.id),
       margin = sale.items.reduce((n, i) => n + (real(i) ? (i.price - i.cost) * i.qty : 0), 0);
     gross += margin;

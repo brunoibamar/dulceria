@@ -48,6 +48,22 @@ export default function Finance({ data, busy, onOpen }) {
           Retirar para mi Economía
         </button>
       </section>
+      <section className="panel consumption-shortcut">
+        <span className="consumption-icon" aria-hidden="true">
+          ◇
+        </span>
+        <div>
+          <h2>Consumo personal</h2>
+          <p>Anota la mercancía que tomas para ti.</p>
+        </div>
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => onOpen({ type: 'consumption', operationId: uid() })}
+        >
+          Registrar consumo
+        </button>
+      </section>
       <p className="hint">
         Puedes dejar tu ganancia dentro del negocio: las siguientes ventas y cobros la seguirán
         aumentando. Un retiro parcial descuenta solo ese importe; retirar todo deja el apartado en
@@ -101,13 +117,6 @@ export default function Finance({ data, busy, onOpen }) {
             <span>Mercancía consumida por ti (costo)</span>
             <b>{money(summary.personalConsumption)}</b>
           </div>
-          <button
-            className="outline full"
-            disabled={busy}
-            onClick={() => onOpen({ type: 'consumption', operationId: uid() })}
-          >
-            Registrar consumo personal de mercancía
-          </button>
           <button
             className="outline full"
             disabled={busy}

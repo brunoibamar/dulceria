@@ -5,6 +5,8 @@ import { balance, cashChange, cents, money, sum, uid } from './domain.js';
 export function CashPayment({ total, busy, onConfirm, people = [] }) {
   const [received, setReceived] = useState((total / 100).toFixed(2));
   const [method, setMethod] = useState('cash');
+  const [showAmounts, setShowAmounts] = useState(false);
+  const amounts = [10, 20, 50, 100, 200, 500, 1000].filter((n) => n * 100 > total).slice(0, 3);
   const [buyer, setBuyer] = useState({});
   const hasBuyer = buyer.customer || buyer.newCustomerName?.trim();
   let cash = null;
@@ -21,14 +23,24 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
     >
       <p>Total a cobrar</p>
       <h2 className="big mint">{money(total)}</h2>
-      <CustomerPicker people={people} value={buyer} onChange={setBuyer} busy={busy} />
-      <label>
-        Método de pago
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="cash">Efectivo</option>
-          <option value="transfer">Transferencia</option>
-        </select>
-      </label>
+      <div className="segments" role="group" aria-label="Método de pago">
+        <button
+          type="button"
+          aria-pressed={method === 'cash'}
+          className={method === 'cash' ? 'selected' : ''}
+          onClick={() => setMethod('cash')}
+        >
+          Efectivo
+        </button>
+        <button
+          type="button"
+          aria-pressed={method === 'transfer'}
+          className={method === 'transfer' ? 'selected' : ''}
+          onClick={() => setMethod('transfer')}
+        >
+          Transferencia
+        </button>
+      </div>
       {method === 'cash' ? (
         <>
           <label>
@@ -47,10 +59,20 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
             <button type="button" onClick={() => setReceived((total / 100).toFixed(2))}>
               Exacto
             </button>
-            {[20, 50, 100, 200, 500, 1000]
-              .filter((n) => n * 100 >= total)
-              .slice(0, 4)
-              .map((n) => (
+            {amounts.length > 0 && (
+              <button
+                type="button"
+                aria-expanded={showAmounts}
+                aria-controls="cash-suggestions"
+                onClick={() => setShowAmounts((v) => !v)}
+              >
+                Elegir importe
+              </button>
+            )}
+          </div>
+          <div className="quick-amounts" id="cash-suggestions" hidden={!showAmounts}>
+            {showAmounts &&
+              amounts.map((n) => (
                 <button type="button" key={n} onClick={() => setReceived(String(n))}>
                   ${n}
                 </button>
@@ -67,6 +89,7 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
           hay cambio.
         </p>
       )}
+      <CustomerPicker people={people} value={buyer} onChange={setBuyer} busy={busy} />
       <p className="hint">
         Confirma solo cuando recibas el dinero. Es un registro manual, no un cobro con tarjeta.
       </p>

@@ -54,7 +54,7 @@ export function customerGroups(report) {
   for (const sale of report.sales) {
     const g = group(sale.customer || sale.person);
     g.sales.push(sale);
-    g.total += sale.total;
+    if (!sale.voided) g.total += sale.total;
   }
   for (const payment of report.payments) {
     const g = group(payment.person);
@@ -99,9 +99,11 @@ export function monthlyHtml(r) {
                 g.sales.map((sale) => [
                   sale.id,
                   date(sale.at),
-                  sale.person
-                    ? 'Fiado'
-                    : `Pagado · ${method(sale.method || (sale.received !== undefined ? 'cash' : null))}`,
+                  sale.voided
+                    ? `Anulada · ${sale.voided.note}`
+                    : sale.person
+                      ? 'Fiado'
+                      : `Pagado · ${method(sale.method || (sale.received !== undefined ? 'cash' : null))}`,
                   sale.items.length
                     ? sale.items
                         .map(
@@ -124,9 +126,10 @@ export function monthlyHtml(r) {
           )
           .join('')
       : '<p>Sin compras ni abonos registrados en este mes.</p>');
-  const sales = r.sales.reduce((n, s) => n + s.total, 0);
+  const activeSales = r.sales.filter((s) => !s.voided);
+  const sales = activeSales.reduce((n, s) => n + s.total, 0);
   const collected =
-    r.sales.filter((s) => !s.person).reduce((n, s) => n + s.total, 0) +
+    activeSales.filter((s) => !s.person).reduce((n, s) => n + s.total, 0) +
     r.payments.reduce((n, p) => n + p.amount, 0);
   const items = r.sales.flatMap((s) =>
     s.items.map((i) => [
@@ -157,7 +160,11 @@ export function monthlyHtml(r) {
       s.id,
       date(s.at),
       person(s.customer || s.person),
-      s.person ? 'Fiado' : method(s.method || (s.received !== undefined ? 'cash' : null)),
+      s.voided
+        ? `Anulada · ${s.voided.note}`
+        : s.person
+          ? 'Fiado'
+          : method(s.method || (s.received !== undefined ? 'cash' : null)),
       cash(s.total),
       cash(s.received),
       cash(s.change),

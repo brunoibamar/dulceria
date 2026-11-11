@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { cents, money } from './domain.js';
-export default function RestockFields({ product }) {
+export default function RestockFields({ product, suggested }) {
   const [mode, setMode] = useState('purchase');
   const [quantity, setQuantity] = useState('');
   const [total, setTotal] = useState('');
@@ -15,6 +15,9 @@ export default function RestockFields({ product }) {
       <p>
         <strong>{product.name}</strong> · {product.stock} unidades actuales
       </p>
+      {suggested > 0 && (
+        <p className="hint">Sugerencia de la lista: al menos {suggested} piezas.</p>
+      )}
       <label>
         ¿Qué quieres registrar?
         <select name="restockMode" value={mode} onChange={(e) => setMode(e.target.value)}>

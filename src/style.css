@@ -1395,6 +1395,97 @@ summary:focus-visible {
 .pricing-preview p {
   margin: 10px 0;
 }
+.mobile-checkout {
+  display: none;
+}
+.consumption-shortcut {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-block: 18px;
+  border-color: #af7ce978;
+}
+.consumption-shortcut h2,
+.consumption-shortcut p {
+  margin: 0;
+}
+.consumption-shortcut p {
+  margin-top: 4px;
+}
+.consumption-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #9b55d12b;
+  color: #e9cbff;
+  font-size: 24px;
+}
+.frequent-products {
+  margin-block: 12px;
+}
+.frequent-products h3 {
+  margin-block: 0 6px;
+}
+.quick-amounts[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .feedback-pop,
+  .toast {
+    animation: confirm-action 200ms ease-out;
+  }
+}
+@keyframes confirm-action {
+  from {
+    opacity: 0.65;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (max-width: 780px) {
+  .sale-with-checkout {
+    padding-bottom: calc(180px + env(safe-area-inset-bottom));
+  }
+  .mobile-checkout {
+    display: flex;
+    position: fixed;
+    z-index: 4;
+    bottom: calc(69px + env(safe-area-inset-bottom));
+    inset-inline: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #21162e;
+    border-top: 1px solid #ffffff20;
+    padding: 10px 16px;
+  }
+  .mobile-checkout small,
+  .mobile-checkout strong {
+    display: block;
+  }
+  .mobile-checkout strong {
+    font-size: 20px;
+  }
+  .sale-with-checkout .toast {
+    bottom: calc(151px + env(safe-area-inset-bottom));
+  }
+  .sale-with-checkout .inline-checkout,
+  .catalog-total {
+    display: none;
+  }
+  .consumption-shortcut {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .consumption-shortcut button {
+    grid-column: 1 / -1;
+  }
+}
 .pricing-preview .actions {
   flex-wrap: wrap;
   margin-top: 12px;

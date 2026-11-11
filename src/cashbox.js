@@ -3,12 +3,11 @@ export const cashData = (d) => d.cashbox || { version: 1, counts: [], adjustment
 export function cashFlows(d) {
   const flows = (d.carryover?.cash || []).map((f) => ({ ...f }));
   for (const s of d.sales)
-    if (!s.person)
-      flows.push({
-        id: `sale:${s.id}`,
-        amount: s.total,
-        method: s.method || (s.received !== undefined ? 'cash' : 'unknown'),
-      });
+    if (!s.person) {
+      const method = s.method || (s.received !== undefined ? 'cash' : 'unknown');
+      flows.push({ id: `sale:${s.id}`, amount: s.total, method });
+      if (s.voided) flows.push({ id: `void:${s.id}`, amount: -s.total, method });
+    }
   for (const p of d.payments)
     flows.push({ id: `payment:${p.id}`, amount: p.amount, method: p.method || 'unknown' });
   for (const w of d.finance?.withdrawals || [])

@@ -45,7 +45,7 @@ export const normalize = (value) =>
     .trim()
     .replace(/\s+/g, ' ');
 export const balance = (d, id) =>
-  d.sales.filter((s) => s.person === id).reduce((n, s) => n + s.total, 0) -
+  d.sales.filter((s) => !s.voided && s.person === id).reduce((n, s) => n + s.total, 0) -
   d.payments.filter((p) => p.person === id).reduce((n, p) => n + p.amount, 0);
 const validCost = (p) =>
   p.costStatus === 'unknown'
@@ -228,6 +228,42 @@ export function sellPaid(data, fields) {
     throw Error('Indica quién está pagando antes de confirmar.');
   return sell(next, { ...fields, person: null, customer });
 }
+export function saleVoidProblem(d, sale) {
+  if (!sale || sale.voided) return 'Esta venta ya no se puede anular.';
+  if (d.carryover && Date.parse(sale.at) < Date.parse(d.carryover.until))
+    return 'La venta pertenece a un mes cerrado.';
+  if (!sale.person) return '';
+  const paid = d.payments.filter((p) => p.person === sale.person).reduce((n, p) => n + p.amount, 0);
+  const charges = d.sales
+    .filter((s) => !s.voided && s.person === sale.person)
+    .sort((a, b) => a.at.localeCompare(b.at));
+  const earlier = charges.slice(0, charges.indexOf(sale)).reduce((n, s) => n + s.total, 0);
+  return paid > earlier ? 'Esta venta fiada ya tiene un abono aplicado.' : '';
+}
+
+export function voidSale(d, id, reason, now = new Date()) {
+  const sale = d.sales.find((s) => s.id === id);
+  const problem = saleVoidProblem(d, sale);
+  if (problem) throw Error(problem);
+  const note = reason.trim();
+  if (!note || note.length > 200) throw Error('Escribe un motivo de hasta 200 caracteres.');
+  const at = now.toISOString();
+  if (Date.parse(at) < Date.parse(sale.at)) throw Error('Revisa la fecha y hora del dispositivo.');
+  const quantities = new Map();
+  for (const item of sale.items)
+    quantities.set(item.product, (quantities.get(item.product) || 0) + item.qty);
+  const returns = [...quantities].map(([id, qty]) => {
+    const product = d.products.find((p) => p.id === id);
+    if (!product || !integer(product.stock + qty)) throw Error('No se pueden devolver las piezas.');
+    return { product, qty };
+  });
+  for (const { product, qty } of returns) {
+    product.stock += qty;
+    d.stock.push({ id: uid(), product: product.id, delta: qty, at, note: 'Anulación de venta' });
+  }
+  sale.voided = { at, note };
+  return d;
+}
 export function pay(d, id, value, method = 'cash') {
   person(d, id);
   if (!amount(value) || value <= 0 || value > balance(d, id))
@@ -307,7 +343,17 @@ export function validate(d) {
       (!amount(s.received) || s.received < s.total || s.change !== s.received - s.total || s.person)
     )
       throw Error('Efectivo inválido.');
-    if (s.person) balances.set(s.person, balances.get(s.person) + s.total);
+    if (
+      s.voided !== undefined &&
+      (!s.voided ||
+        !dated(s.voided) ||
+        Date.parse(s.voided.at) < Date.parse(s.at) ||
+        typeof s.voided.note !== 'string' ||
+        !s.voided.note.trim() ||
+        s.voided.note.length > 200)
+    )
+      throw Error('Anulación inválida.');
+    if (s.person && !s.voided) balances.set(s.person, balances.get(s.person) + s.total);
   }
   for (const p of d.payments) {
     if (p.method !== undefined && !['cash', 'transfer'].includes(p.method))

@@ -10,6 +10,8 @@ import {
   money,
   pay,
   saveProduct,
+  saleVoidProblem,
+  voidSale,
   sell,
   sellPaid,
   sum,
@@ -27,7 +29,8 @@ import PersonButton from './PersonButton';
 import Calculator from './Calculator';
 import Modal from './Modal';
 import { CashPayment, DirectCharge, PaymentForm } from './Payments';
-import HistoryList from './HistoryList';
+import HistoryList, { date } from './HistoryList';
+import VoidSaleForm from './VoidSaleForm.jsx';
 import Dashboard from './Dashboard';
 import Finance, { WithdrawalForm, BusinessMovementForm } from './Finance.jsx';
 import { recordWithdrawal, recordBusinessMovement, recordConsumption } from './finance.js';
@@ -58,6 +61,7 @@ const titleFor = (m) =>
     charge: 'Agregar a una cuenta',
     directCharge: `Nuevo cargo · ${m.person?.name}`,
     cash: 'Cobrar venta',
+    voidSale: 'Anular venta',
     history: m.person?.name,
     restock: 'Reponer mercancía',
     import: 'Restaurar respaldo',
@@ -93,6 +97,7 @@ function App() {
   const [install, setInstall] = useState(null),
     [online, setOnline] = useState(navigator.onLine),
     [lastExport, setLastExport] = useState(() => readLocal('lastExport', null)),
+    [verifiedBackup, setVerifiedBackup] = useState(() => readLocal('verifiedBackup', null)),
     [clock, setClock] = useState(Date.now());
   const saving = useRef(false),
     channel = useRef(null),
@@ -175,11 +180,20 @@ function App() {
   const balances = useMemo(() => {
     const map = new Map(data?.people.map((p) => [p.id, 0]));
     for (const s of data?.sales || [])
-      if (s.person) map.set(s.person, (map.get(s.person) || 0) + s.total);
+      if (s.person && !s.voided) map.set(s.person, (map.get(s.person) || 0) + s.total);
     for (const p of data?.payments || []) map.set(p.person, (map.get(p.person) || 0) - p.amount);
     return map;
   }, [data]);
   const history = useMemo(() => (data ? historyOf(data) : []), [data]);
+  const productFrequency = useMemo(() => {
+    const counts = new Map();
+    for (const sale of data?.sales || []) {
+      if (sale.voided) continue;
+      for (const item of sale.items)
+        counts.set(item.product, (counts.get(item.product) || 0) + item.qty);
+    }
+    return counts;
+  }, [data]);
   useEffect(() => {
     if (data?.sales.some((s) => s.id === operationId)) resetDraft();
   }, [data, operationId]);
@@ -227,7 +241,7 @@ function App() {
             operationId,
             expectedTotal: total,
           }),
-        person ? 'Cargo agregado a la cuenta' : 'Venta cobrada y guardada'
+        person ? 'Cargo agregado a la cuenta' : `✓ Cobro de ${money(total)} guardado`
       )
     ) {
       resetDraft();
@@ -237,6 +251,9 @@ function App() {
   function openModal(value) {
     setError('');
     setModal(value.type === 'restock' ? { ...value, operationId: uid() } : value);
+  }
+  function openVoid(id) {
+    openModal({ type: 'voidSale', saleId: id });
   }
   function go(id) {
     setTab(id);
@@ -392,7 +409,12 @@ function App() {
     shortages = activeProducts.filter(low);
   const debts = [...balances.values()].reduce((n, v) => n + v, 0),
     now = new Date(clock),
-    todays = data.sales.filter((s) => inPeriod(s.at, 'today', now));
+    todays = data.sales.filter((s) => !s.voided && inPeriod(s.at, 'today', now));
+  const frequentProducts = activeProducts
+    .filter((p) => p.stock && p.price && productFrequency.has(p.id))
+    .sort((a, b) => productFrequency.get(b.id) - productFrequency.get(a.id))
+    .slice(0, 6);
+  const voidTarget = modal?.type === 'voidSale' && data.sales.find((s) => s.id === modal.saleId);
   const people = data.people
     .filter(
       (p) =>
@@ -468,7 +490,7 @@ function App() {
           <i /> Guardado en este dispositivo<small>Sin nube · Sin suscripciones</small>
         </div>
       </aside>
-      <main>
+      <main className={tab === 'venta' && total > 0 ? 'sale-with-checkout' : undefined}>
         <header>
           <div>
             <p className="eyebrow">TU PEQUEÑO NEGOCIO, EN ORDEN</p>
@@ -483,7 +505,7 @@ function App() {
           </div>
         )}
         {notice && (
-          <div className="toast" role="status">
+          <div className="toast" role="status" key={notice}>
             {notice}
             <button aria-label="Cerrar aviso" onClick={() => setNotice('')}>
               ×
@@ -511,6 +533,23 @@ function App() {
         {tab === 'venta' && (
           <>
             <p className="intro">Suma, cobra y sigue endulzando el día.</p>
+            {total > 0 && (
+              <div className="mobile-checkout" aria-label="Total de la venta">
+                <div>
+                  <small>Total</small>
+                  <strong key={total} className="feedback-pop">
+                    {money(total)}
+                  </strong>
+                </div>
+                <button
+                  className="green"
+                  disabled={busy || invalid || staleCart}
+                  onClick={() => openModal({ type: 'cash' })}
+                >
+                  Cobrar
+                </button>
+              </div>
+            )}
             <div className="salegrid">
               <section className="panel calculator">
                 <div className="row">
@@ -529,7 +568,7 @@ function App() {
                   <Calculator value={expr} onChange={setExpr} />
                 ) : (
                   <>
-                    <div className="display">
+                    <div className="display catalog-total">
                       <small>TOTAL DEL CATÁLOGO</small>
                       <strong>{money(total)}</strong>
                     </div>
@@ -539,6 +578,22 @@ function App() {
                       value={catalogSearch}
                       onChange={(e) => setCatalogSearch(e.target.value)}
                     />
+                    {!catalogSearch.trim() && frequentProducts.length > 0 && (
+                      <section className="frequent-products" aria-label="Productos frecuentes">
+                        <h3>Frecuentes</h3>
+                        <div className="quick-amounts">
+                          {frequentProducts.map((p) => (
+                            <button
+                              key={p.id}
+                              disabled={p.stock <= (cart.find((c) => c.product === p.id)?.qty || 0)}
+                              onClick={() => adjust(p, 1)}
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )}
                     <div className="catalog">
                       {activeProducts
                         .filter((p) => matches(p.name, catalogSearch))
@@ -554,7 +609,11 @@ function App() {
                               <small>
                                 {money(p.price)} · {p.stock - quantity} disponibles
                               </small>
-                              {quantity > 0 && <span className="pill">{quantity} en venta</span>}
+                              {quantity > 0 && (
+                                <span className="pill feedback-pop" key={quantity}>
+                                  {quantity} en venta
+                                </span>
+                              )}
                             </button>
                           );
                         })}
@@ -581,7 +640,9 @@ function App() {
                             >
                               −
                             </button>
-                            <span>{c.qty}</span>
+                            <span key={c.qty} className="feedback-pop">
+                              {c.qty}
+                            </span>
                             <button
                               aria-label={`Añadir una unidad de ${p?.name}`}
                               disabled={!p || p.archived || c.qty >= p.stock}
@@ -607,10 +668,10 @@ function App() {
                     Revisa las cantidades: cambió el inventario de algún producto.
                   </p>
                 )}
-                <div className="actions">
+                <div className="actions sale-actions">
                   <button
                     disabled={busy || invalid || !total || staleCart}
-                    className="green"
+                    className={total > 0 ? 'green inline-checkout' : 'green'}
                     onClick={() => openModal({ type: 'cash' })}
                   >
                     ✓ Cobrar {money(total)}
@@ -668,7 +729,12 @@ function App() {
                 )}
                 <section className="panel recent">
                   <h2>Últimos movimientos</h2>
-                  <HistoryList entries={history.slice(0, 4)} products={data.products} limit={4} />
+                  <HistoryList
+                    entries={history.slice(0, 4)}
+                    products={data.products}
+                    limit={4}
+                    onVoid={openVoid}
+                  />
                 </section>
               </div>
             </div>
@@ -771,8 +837,12 @@ function App() {
               </button>
             </div>
             <ShoppingList
+              key={inventoryFilter}
+              expanded={inventoryFilter === 'low'}
               products={data.products}
-              onRestock={(product) => openModal({ type: 'restock', product })}
+              onRestock={(product) =>
+                openModal({ type: 'restock', product, suggested: product.suggested })
+              }
             />
             <div className="toolbar inventory-toolbar">
               <input
@@ -922,7 +992,7 @@ function App() {
           </>
         )}
 
-        {tab === 'dashboard' && <Dashboard data={data} />}
+        {tab === 'dashboard' && <Dashboard data={data} onVoid={openVoid} />}
         {tab === 'ganancias' && <Finance data={data} busy={busy} onOpen={openModal} />}
         {tab === 'caja' && <Cashbox data={data} busy={busy} onOpen={openModal} />}
         {tab === 'respaldo' && (
@@ -931,8 +1001,13 @@ function App() {
             busy={busy}
             monthlyClose={monthlyClose}
             lastExport={lastExport}
+            verifiedBackup={verifiedBackup}
+            onVerify={(backup) => {
+              setVerifiedBackup(backup);
+              writeLocal('verifiedBackup', backup);
+            }}
             onExport={exportBackup}
-            onImport={(backup) => openModal({ type: 'import', backup })}
+            onImport={(backup, filename) => openModal({ type: 'import', backup, filename })}
             install={install}
             onInstall={async () => {
               try {
@@ -1131,8 +1206,39 @@ function App() {
                   setModal(null);
               }}
             />
+          ) : modal.type === 'voidSale' ? (
+            <VoidSaleForm
+              sale={voidTarget}
+              problem={saleVoidProblem(data, voidTarget)}
+              busy={busy}
+              onConfirm={async (reason) => {
+                if (
+                  await commit(
+                    (d) => voidSale(d, modal.saleId, reason),
+                    'Venta anulada y registrada en el historial'
+                  )
+                )
+                  setModal(null);
+              }}
+            />
           ) : modal.type === 'import' ? (
             <>
+              <p>
+                Archivo: <b>{modal.filename || 'Copia anterior a la última restauración'}</b>
+              </p>
+              <p>
+                Fecha de la copia:{' '}
+                <b>
+                  {Number.isFinite(Date.parse(modal.backup.exportedAt))
+                    ? date(modal.backup.exportedAt)
+                    : 'Sin fecha de exportación'}
+                </b>
+              </p>
+              <p>
+                {modal.backup.products.length} productos · {modal.backup.payments.length} abonos ·{' '}
+                {modal.backup.finance?.withdrawals.length || 0} retiros ·{' '}
+                {modal.backup.cashbox?.counts.length || 0} conteos de caja
+              </p>
               <p>
                 Vas a reemplazar{' '}
                 <b>
@@ -1197,6 +1303,7 @@ function App() {
                   (s) => s.person === currentPerson.id || s.customer === currentPerson.id
                 )}
                 products={data.products}
+                onVoid={openVoid}
               />
             </>
           ) : (
@@ -1250,6 +1357,7 @@ function App() {
               )}
               {modal.type === 'restock' && (
                 <RestockFields
+                  suggested={modal.suggested}
                   key={modal.operationId}
                   product={data.products.find((p) => p.id === modal.product.id) || modal.product}
                 />

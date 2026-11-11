@@ -18,7 +18,7 @@ export function dailySales(sales, now = new Date()) {
       label: day.toLocaleDateString('es-MX', { weekday: 'short' }),
       date: day.toLocaleDateString('es-MX'),
       total: sales
-        .filter((s) => new Date(s.at) >= day && new Date(s.at) < next)
+        .filter((s) => !s.voided && new Date(s.at) >= day && new Date(s.at) < next)
         .reduce((n, s) => n + s.total, 0),
     };
   });

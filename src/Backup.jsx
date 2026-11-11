@@ -8,6 +8,8 @@ export default function Backup({
   data,
   busy,
   lastExport,
+  verifiedBackup,
+  onVerify,
   monthlyClose,
   onExport,
   onImport,
@@ -27,6 +29,42 @@ export default function Backup({
       .then(setStorage)
       .catch(() => {});
   }, [data]);
+  const verifiedAt = [
+    verifiedBackup?.at,
+    data.carryover?.archivePath ? data.carryover.closedAt : null,
+  ]
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort()
+    .at(-1);
+  const newestCopy = [
+    verifiedBackup?.copyAt,
+    data.carryover?.archivePath ? data.carryover.closedAt : null,
+  ]
+    .filter((value) => Number.isFinite(Date.parse(value)))
+    .sort()
+    .at(-1);
+  const backupDue = !newestCopy || Date.now() - Date.parse(newestCopy) > 7 * 86400000;
+
+  async function readBackup(event, restore) {
+    const input = event.currentTarget;
+    try {
+      const file = input.files[0];
+      if (!file) return;
+      if (file.size > 20e6) throw Error('El archivo excede 20 MB.');
+      const backup = validate(JSON.parse(await file.text()));
+      const exportedAt = Date.parse(backup.exportedAt);
+      onVerify({
+        at: new Date().toISOString(),
+        copyAt: Number.isFinite(exportedAt) ? new Date(exportedAt).toISOString() : null,
+      });
+      if (restore) onImport(backup, file.name);
+      else onNotice('Respaldo verificado. El archivo es legible y compatible.');
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      input.value = '';
+    }
+  }
   return (
     <div className="stack narrow">
       <ReportViewer
@@ -104,8 +142,27 @@ export default function Backup({
           {lastExport
             ? `Último archivo generado: ${date(lastExport)}`
             : 'Aún no has generado un respaldo en este navegador.'}{' '}
-          Comprueba que el archivo quedó guardado en Descargas.
+          Puedes comprobar el archivo desde Descargas.
         </p>
+        <p>
+          Último respaldo verificado: <b>{verifiedAt ? date(verifiedAt) : 'Ninguno todavía'}</b>
+        </p>
+        {backupDue && (
+          <p className="warning">
+            {newestCopy
+              ? 'La copia verificada más reciente tiene más de 7 días. Guarda una nueva.'
+              : 'Descarga y verifica una copia reciente de tus datos.'}
+          </p>
+        )}
+        <label className="filelabel">
+          Verificar un respaldo
+          <input
+            disabled={busy}
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => readBackup(event, false)}
+          />
+        </label>
       </section>
       <section className="panel">
         <h2>Restaurar una copia</h2>
@@ -119,18 +176,7 @@ export default function Backup({
             disabled={busy}
             type="file"
             accept=".json,application/json"
-            onChange={async (e) => {
-              try {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (file.size > 20e6) throw Error('El archivo excede 20 MB.');
-                onImport(validate(JSON.parse(await file.text())));
-              } catch (error) {
-                onError(error.message);
-              } finally {
-                e.target.value = '';
-              }
-            }}
+            onChange={(event) => readBackup(event, true)}
           />
         </label>
         {recovery && (

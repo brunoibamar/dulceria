@@ -1,6 +1,6 @@
 import React from 'react';
 import { shoppingList } from './inventory.js';
-export default function ShoppingList({ products, onRestock }) {
+export default function ShoppingList({ products, expanded, onRestock }) {
   const items = shoppingList(products);
   function download() {
     const text = [
@@ -17,7 +17,7 @@ export default function ShoppingList({ products, onRestock }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return (
-    <details className="panel shopping-list">
+    <details className="panel shopping-list" open={expanded || undefined}>
       <summary>Lista de compras · {items.length} productos por reponer</summary>
       <p className="hint">
         Se actualiza con tus existencias. La cantidad mínima sugerida permite superar el nivel de
@@ -35,7 +35,11 @@ export default function ShoppingList({ products, onRestock }) {
                   Quedan {p.stock} · Comprar al menos {p.suggested} piezas
                 </p>
               </div>
-              <button className="outline" onClick={() => onRestock(p)}>
+              <button
+                className="primary"
+                aria-label={`Reponer ${p.name}`}
+                onClick={() => onRestock(p)}
+              >
                 Reponer
               </button>
             </div>
