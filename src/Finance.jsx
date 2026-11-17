@@ -75,16 +75,17 @@ export default function Finance({ data, busy, onOpen }) {
       </p>
       <div className="cards">
         <section className="panel">
-          <small>RESERVADO PARA EL NEGOCIO</small>
+          <small>RESERVA DEL NEGOCIO PENDIENTE DE RECUPERAR</small>
           <h2 className="big">{money(summary.reserve)}</h2>
           <p>
-            Costo recuperado y dinero sin costo confirmado, menos las compras registradas como uso
-            de reinversión.
+            Es un cálculo contable de costos aún no recuperados. Ya descuenta las compras de
+            mercancía registradas; no es el efectivo en caja ni dinero libre para otra compra.
           </p>
           {summary.uncosted > 0 && (
             <p className="warning">
               Hay {money(summary.uncosted)} cobrados sin costo confirmado o con costo estimado. Se
-              mantienen dentro del negocio y no se habilitan como ganancia para retirar.
+              mantienen dentro del negocio y no se habilitan como ganancia para retirar; este total
+              es distinto de la reserva que queda después de registrar reinversiones.
             </p>
           )}
           <button
@@ -94,7 +95,7 @@ export default function Finance({ data, busy, onOpen }) {
               onOpen({ type: 'businessMovement', kind: 'reinvestment', operationId: uid() })
             }
           >
-            Registrar uso de reinversión
+            Registrar compra o gasto del negocio
           </button>
         </section>
         <section className="panel">
@@ -117,15 +118,6 @@ export default function Finance({ data, busy, onOpen }) {
             <span>Mercancía consumida por ti (costo)</span>
             <b>{money(summary.personalConsumption)}</b>
           </div>
-          <button
-            className="outline full"
-            disabled={busy}
-            onClick={() =>
-              onOpen({ type: 'businessMovement', kind: 'expense', operationId: uid() })
-            }
-          >
-            Registrar gasto del negocio
-          </button>
         </section>
       </div>
       {summary.shortfall > 0 && (
@@ -134,41 +126,6 @@ export default function Finance({ data, busy, onOpen }) {
           negocio. El disponible permanecerá en cero hasta cubrirlos.
         </p>
       )}
-      <section className="panel">
-        <h2>Tu conexión con Economía</h2>
-        <p>
-          Economía incorpora tus retiros personales al abrirse en este mismo navegador y
-          dispositivo. Reconoce cada identificador para registrar el ingreso una sola vez. La
-          reinversión y los demás datos del negocio permanecen aquí.
-        </p>
-        <a href="/economia/" target="_blank" rel="noreferrer">
-          Abrir mi Economía ↗
-        </a>
-        <p>
-          Esto no mueve dinero entre bancos. Registra el dinero que tú realmente separas del negocio
-          para uso personal. La aplicación no comprueba cuánto tienes físicamente en caja.
-        </p>
-      </section>
-      <section className="panel finance-method">
-        <h2>Cómo se calcula</h2>
-        <p>
-          Las ventas de contado se consideran cobradas. Los abonos se aplican primero a los cargos
-          más antiguos de la persona y liberan la parte proporcional de ganancia con costo
-          confirmado, redondeada hacia abajo al centavo. Las pérdidas confirmadas reducen el
-          disponible.
-        </p>
-        <p>
-          Las sumas libres y costos estimados no generan ganancia retirable. Las compras para
-          resurtir se descuentan de la reserva y del dinero del negocio, incluso si superan esa
-          reserva, pero no del apartado para ti. Los gastos operativos y el consumo personal de
-          mercancía sí reducen la ganancia. No registres una misma compra también como gasto.
-        </p>
-        <p>
-          Se usa todo tu historial registrado, sin inventar un saldo inicial. Antes del primer
-          retiro revisa tus costos y registra los gastos y compras que ya hayas pagado. Las
-          reposiciones de inventario no se convierten automáticamente en gastos o compras.
-        </p>
-      </section>
       <section className="panel">
         <div className="row">
           <h2>Historial del negocio</h2>
@@ -284,13 +241,14 @@ export function WithdrawalForm({ data, busy, onConfirm }) {
   );
 }
 export function BusinessMovementForm({ kind, busy, onConfirm }) {
-  const purchase = kind === 'reinvestment';
+  const [movementKind, setMovementKind] = useState(kind || 'reinvestment');
+  const purchase = movementKind === 'reinvestment';
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.currentTarget));
-        onConfirm({ amount: f.amount, note: f.note, method: f.method });
+        onConfirm({ amount: f.amount, note: f.note, method: f.method, kind: f.kind });
       }}
     >
       <p>
@@ -298,6 +256,13 @@ export function BusinessMovementForm({ kind, busy, onConfirm }) {
           ? 'Registra dinero que ya usaste para comprar mercancía. Se descontará del dinero del negocio, sin reducir tu apartado de ganancia acumulada.'
           : 'Registra un gasto operativo ya pagado, por ejemplo transporte o bolsas. Reducirá tu ganancia disponible.'}
       </p>
+      <label>
+        Tipo de movimiento
+        <select name="kind" value={movementKind} onChange={(e) => setMovementKind(e.target.value)}>
+          <option value="reinvestment">Compra de mercancía / reinversión</option>
+          <option value="expense">Gasto operativo del negocio</option>
+        </select>
+      </label>
       <label>
         Importe pagado ($)
         <input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" required />
@@ -323,7 +288,7 @@ export function BusinessMovementForm({ kind, busy, onConfirm }) {
         compras para resurtir se registran aquí como reinversión y no también como gasto.
       </p>
       <button className="primary full" disabled={busy}>
-        Guardar {purchase ? 'uso de reinversión' : 'gasto'}
+        Guardar {purchase ? 'compra' : 'gasto'}
       </button>
     </form>
   );

@@ -5,6 +5,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { transact } from './db.js';
 import {
   archivePerson,
+  deletePerson,
   cents,
   editPerson,
   money,
@@ -14,6 +15,7 @@ import {
   voidSale,
   sell,
   sellPaid,
+  sellOnAccount,
   sum,
   uid,
   restock,
@@ -55,6 +57,7 @@ const titleFor = (m) =>
     person: 'Nueva persona',
     editPerson: 'Editar persona',
     personOptions: m.person?.name,
+    deletePerson: 'Eliminar cuenta',
     deleteProduct: 'Eliminar producto',
     product: m.product ? 'Editar producto' : 'Nuevo producto',
     pay: 'Registrar abono',
@@ -68,9 +71,8 @@ const titleFor = (m) =>
     withdraw: 'Retirar para mi Economía',
     consumption: 'Consumo personal de mercancía',
     cashCount: 'Conteo de caja física',
-    cashAdjustment: 'Entrada o salida de efectivo',
-    businessMovement:
-      m.kind === 'reinvestment' ? 'Registrar uso de reinversión' : 'Registrar gasto del negocio',
+    cashAdjustment: 'Mover efectivo o transferencia',
+    businessMovement: 'Registrar compra o gasto del negocio',
   })[m.type];
 
 function App() {
@@ -94,8 +96,7 @@ function App() {
     [inventoryFilter, setInventoryFilter] = useState('all'),
     [sort, setSort] = useState('name'),
     [catalogSearch, setCatalogSearch] = useState('');
-  const [install, setInstall] = useState(null),
-    [online, setOnline] = useState(navigator.onLine),
+  const [online, setOnline] = useState(navigator.onLine),
     [lastExport, setLastExport] = useState(() => readLocal('lastExport', null)),
     [verifiedBackup, setVerifiedBackup] = useState(() => readLocal('verifiedBackup', null)),
     [clock, setClock] = useState(Date.now());
@@ -129,15 +130,10 @@ function App() {
         reload();
         setClock(Date.now());
       },
-      network = () => setOnline(navigator.onLine),
-      before = (e) => {
-        e.preventDefault();
-        setInstall(e);
-      };
+      network = () => setOnline(navigator.onLine);
     window.addEventListener('focus', focus);
     window.addEventListener('online', network);
     window.addEventListener('offline', network);
-    window.addEventListener('beforeinstallprompt', before);
     const ticker = setInterval(() => setClock(Date.now()), 60000);
     return () => {
       channel.current?.close();
@@ -145,7 +141,6 @@ function App() {
       window.removeEventListener('focus', focus);
       window.removeEventListener('online', network);
       window.removeEventListener('offline', network);
-      window.removeEventListener('beforeinstallprompt', before);
     };
   }, []);
   useEffect(() => {
@@ -185,19 +180,13 @@ function App() {
     return map;
   }, [data]);
   const history = useMemo(() => (data ? historyOf(data) : []), [data]);
-  const productFrequency = useMemo(() => {
-    const counts = new Map();
-    for (const sale of data?.sales || []) {
-      if (sale.voided) continue;
-      for (const item of sale.items)
-        counts.set(item.product, (counts.get(item.product) || 0) + item.qty);
-    }
-    return counts;
-  }, [data]);
   useEffect(() => {
     if (data?.sales.some((s) => s.id === operationId)) resetDraft();
   }, [data, operationId]);
   const debt = (id) => balances.get(id) || 0;
+  const personHasHistory = (id) =>
+    data.sales.some((sale) => sale.person === id || sale.customer === id) ||
+    data.payments.some((payment) => payment.person === id);
 
   async function commit(change, message, options) {
     if (saving.current) return false;
@@ -231,7 +220,7 @@ function App() {
     if (
       await commit(
         (d) =>
-          (person ? sell : sellPaid)(d, {
+          (person ? sell : buyer.onAccount ? sellOnAccount : sellPaid)(d, {
             ...buyer,
             expression: expr,
             cart: catalog ? cart : [],
@@ -241,7 +230,11 @@ function App() {
             operationId,
             expectedTotal: total,
           }),
-        person ? 'Cargo agregado a la cuenta' : `✓ Cobro de ${money(total)} guardado`
+        buyer.onAccount
+          ? 'Compra agregada a la cuenta del cliente'
+          : person
+            ? 'Cargo agregado a la cuenta'
+            : `✓ Cobro de ${money(total)} guardado`
       )
     ) {
       resetDraft();
@@ -410,10 +403,6 @@ function App() {
   const debts = [...balances.values()].reduce((n, v) => n + v, 0),
     now = new Date(clock),
     todays = data.sales.filter((s) => !s.voided && inPeriod(s.at, 'today', now));
-  const frequentProducts = activeProducts
-    .filter((p) => p.stock && p.price && productFrequency.has(p.id))
-    .sort((a, b) => productFrequency.get(b.id) - productFrequency.get(a.id))
-    .slice(0, 6);
   const voidTarget = modal?.type === 'voidSale' && data.sales.find((s) => s.id === modal.saleId);
   const people = data.people
     .filter(
@@ -578,22 +567,6 @@ function App() {
                       value={catalogSearch}
                       onChange={(e) => setCatalogSearch(e.target.value)}
                     />
-                    {!catalogSearch.trim() && frequentProducts.length > 0 && (
-                      <section className="frequent-products" aria-label="Productos frecuentes">
-                        <h3>Frecuentes</h3>
-                        <div className="quick-amounts">
-                          {frequentProducts.map((p) => (
-                            <button
-                              key={p.id}
-                              disabled={p.stock <= (cart.find((c) => c.product === p.id)?.qty || 0)}
-                              onClick={() => adjust(p, 1)}
-                            >
-                              {p.name}
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-                    )}
                     <div className="catalog">
                       {activeProducts
                         .filter((p) => matches(p.name, catalogSearch))
@@ -1008,15 +981,6 @@ function App() {
             }}
             onExport={exportBackup}
             onImport={(backup, filename) => openModal({ type: 'import', backup, filename })}
-            install={install}
-            onInstall={async () => {
-              try {
-                await install.prompt();
-                setInstall(null);
-              } catch (e) {
-                setError(e.message);
-              }
-            }}
             onNotice={setNotice}
             onError={setError}
           />
@@ -1060,12 +1024,43 @@ function App() {
                 >
                   {currentPerson.archived ? 'Reactivar cliente' : 'Archivar cliente'}
                 </button>
+                <button
+                  className="danger full"
+                  disabled={busy || debt(currentPerson.id) !== 0 || personHasHistory(currentPerson.id)}
+                  onClick={() => openModal({ type: 'deletePerson', person: currentPerson })}
+                >
+                  Eliminar cuenta sin movimientos
+                </button>
               </div>
               <p className="hint">
                 Archivar lo oculta de las cuentas activas. Su saldo sigue en el total y puedes
-                abonar desde Archivados.
+                abonar desde Archivados. Solo se puede eliminar definitivamente una cuenta sin
+                ventas ni abonos; el historial se conserva al archivarla.
               </p>
             </>
+          ) : modal.type === 'deletePerson' ? (
+            <div className="stack">
+              <p>
+                ¿Eliminar a <b>{currentPerson.name}</b>? Esta cuenta no tiene movimientos. La acción
+                no se puede deshacer.
+              </p>
+              <button
+                className="danger full"
+                disabled={busy || debt(currentPerson.id) !== 0 || personHasHistory(currentPerson.id)}
+                onClick={async () => {
+                  if (await commit((d) => deletePerson(d, currentPerson.id), 'Cuenta eliminada'))
+                    setModal(null);
+                }}
+              >
+                Sí, eliminar cuenta
+              </button>
+              <button
+                className="outline full"
+                onClick={() => setModal({ type: 'personOptions', person: currentPerson })}
+              >
+                Cancelar
+              </button>
+            </div>
           ) : modal.type === 'consumption' ? (
             <ConsumptionForm
               data={data}
@@ -1160,7 +1155,7 @@ function App() {
                         recordBusinessMovement(d, {
                           ...fields,
                           amount,
-                          kind: modal.kind,
+                          kind: fields.kind,
                           id: modal.operationId,
                           at: new Date().toISOString(),
                         }),

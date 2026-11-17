@@ -79,6 +79,16 @@ export function archivePerson(d, id, archived) {
   person(d, id).archived = archived;
   return d;
 }
+export function deletePerson(d, id) {
+  const target = person(d, id);
+  const hasHistory =
+    d.sales.some((sale) => sale.person === id || sale.customer === id) ||
+    d.payments.some((payment) => payment.person === id);
+  if (hasHistory)
+    throw Error('Esta cuenta tiene movimientos. Archívala para conservar su historial.');
+  d.people = d.people.filter((p) => p.id !== target.id);
+  return d;
+}
 export function saveProduct(d, fields, id = null) {
   const product = {
     name: name(fields.name),
@@ -227,6 +237,24 @@ export function sellPaid(data, fields) {
   if (!customer || !next.people.some((p) => p.id === customer))
     throw Error('Indica quién está pagando antes de confirmar.');
   return sell(next, { ...fields, person: null, customer });
+}
+export function sellOnAccount(data, fields) {
+  const next = structuredClone(data);
+  let person = fields.person || fields.customer;
+  if (fields.newCustomerName !== undefined && fields.newCustomerName !== null) {
+    const customerName = name(fields.newCustomerName);
+    const existing = next.people.filter((p) => normalize(p.name) === normalize(customerName));
+    if (existing.length > 1)
+      throw Error('Hay varias personas con ese nombre. Selecciona la cuenta correcta.');
+    if (existing.length) person = existing[0].id;
+    else {
+      person = uid();
+      next.people.push({ id: person, name: customerName, phone: '', notes: '' });
+    }
+  }
+  if (!person || !next.people.some((p) => p.id === person && !p.archived))
+    throw Error('Selecciona una cuenta activa antes de agregar la compra.');
+  return sell(next, { ...fields, person, customer: null, received: null });
 }
 export function saleVoidProblem(d, sale) {
   if (!sale || sale.voided) return 'Esta venta ya no se puede anular.';

@@ -7,7 +7,7 @@ export default function CustomerPicker({ people, value, onChange, busy }) {
   const selected = people.find((p) => p.id === value.customer);
   const query = normalize(search);
   const matches = people
-    .filter((p) => normalize(`${p.name} ${p.phone}`).includes(query))
+    .filter((p) => !p.archived && normalize(`${p.name} ${p.phone}`).includes(query))
     .sort(
       (a, b) =>
         Number(normalize(b.name) === query) - Number(normalize(a.name) === query) ||
@@ -15,7 +15,7 @@ export default function CustomerPicker({ people, value, onChange, busy }) {
     );
   return (
     <fieldset className="customer-picker" disabled={busy}>
-      <legend>¿Quién está pagando?</legend>
+      <legend>¿A qué cliente corresponde?</legend>
       {creating ? (
         <>
           <label>
@@ -96,9 +96,6 @@ export default function CustomerPicker({ people, value, onChange, busy }) {
           </button>
         </>
       )}
-      <p className="hint">
-        Esta compra queda pagada; no genera deuda ni abona a deudas anteriores.
-      </p>
     </fieldset>
   );
 }

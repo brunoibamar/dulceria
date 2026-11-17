@@ -13,8 +13,6 @@ export default function Backup({
   monthlyClose,
   onExport,
   onImport,
-  install,
-  onInstall,
   onNotice,
   onError,
 }) {
@@ -225,23 +223,6 @@ export default function Backup({
         >
           Solicitar almacenamiento persistente
         </button>
-      </section>
-      <section className="panel">
-        <h2>Instalar en Android</h2>
-        <p>
-          Abre el enlace HTTPS en Chrome, espera la primera carga completa y elige «Instalar
-          aplicación» o «Agregar a pantalla principal». Ábrela desde el icono con internet y después
-          compruébala en modo avión.
-        </p>
-        {install && (
-          <button className="primary full" onClick={onInstall}>
-            Instalar Dulcería
-          </button>
-        )}
-        <p>
-          En HTTP local puedes probar la app; la instalación y el modo sin conexión requieren HTTPS
-          o localhost.
-        </p>
       </section>
     </div>
   );

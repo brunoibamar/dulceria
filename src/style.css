@@ -383,6 +383,11 @@ header {
   color: #d3bce6;
   background: #a572d90b;
 }
+.danger {
+  border: 1px solid #ef639055;
+  color: #ffc0d0;
+  background: #e8436b18;
+}
 .hint {
   font-size: 11px;
   text-align: center;
@@ -478,6 +483,13 @@ header {
 }
 .toolbar select {
   max-width: 200px;
+}
+.inventory-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px 200px;
+}
+.inventory-toolbar input {
+  grid-column: 1 / -1;
 }
 .cards {
   display: grid;
@@ -812,6 +824,32 @@ footer span {
   }
   .toolbar select {
     max-width: none;
+  }
+  .inventory-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin: 16px 0;
+  }
+  .inventory-toolbar input {
+    grid-column: 1 / -1;
+  }
+  .inventory-toolbar select {
+    padding: 11px 10px;
+    font-size: 12px;
+  }
+  .inventory-toolbar + .cards > .panel {
+    padding: 16px;
+  }
+  .inventory-toolbar + .cards .productstats {
+    gap: 7px;
+    margin: 16px 0 10px;
+  }
+  .inventory-toolbar + .cards .productstats small {
+    font-size: 8px;
+    letter-spacing: 0.2px;
+  }
+  .inventory-toolbar + .cards .productstats b {
+    font-size: 15px;
   }
   .overlay {
     padding: 12px;

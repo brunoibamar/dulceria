@@ -6,6 +6,7 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
   const [received, setReceived] = useState((total / 100).toFixed(2));
   const [method, setMethod] = useState('cash');
   const [showAmounts, setShowAmounts] = useState(false);
+  const [onAccount, setOnAccount] = useState(false);
   const amounts = [10, 20, 50, 100, 200, 500, 1000].filter((n) => n * 100 > total).slice(0, 3);
   const [buyer, setBuyer] = useState({});
   const hasBuyer = buyer.customer || buyer.newCustomerName?.trim();
@@ -17,31 +18,48 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (hasBuyer && (method === 'transfer' || cash))
-          onConfirm(method === 'cash' ? cash.received : null, method, buyer);
+        if (hasBuyer && (onAccount || method === 'transfer' || cash))
+          onConfirm(onAccount ? null : method === 'cash' ? cash.received : null, method, {
+            ...buyer,
+            onAccount,
+          });
       }}
     >
       <p>Total a cobrar</p>
       <h2 className="big mint">{money(total)}</h2>
-      <div className="segments" role="group" aria-label="Método de pago">
-        <button
-          type="button"
-          aria-pressed={method === 'cash'}
-          className={method === 'cash' ? 'selected' : ''}
-          onClick={() => setMethod('cash')}
-        >
-          Efectivo
-        </button>
-        <button
-          type="button"
-          aria-pressed={method === 'transfer'}
-          className={method === 'transfer' ? 'selected' : ''}
-          onClick={() => setMethod('transfer')}
-        >
-          Transferencia
-        </button>
-      </div>
-      {method === 'cash' ? (
+      <label className="checkline">
+        <input
+          type="checkbox"
+          checked={onAccount}
+          onChange={(e) => setOnAccount(e.target.checked)}
+        />
+        Agregar esta compra a su cuenta (sumar a su saldo pendiente)
+      </label>
+      {!onAccount && (
+        <div className="segments" role="group" aria-label="Método de pago">
+          <button
+            type="button"
+            aria-pressed={method === 'cash'}
+            className={method === 'cash' ? 'selected' : ''}
+            onClick={() => setMethod('cash')}
+          >
+            Efectivo
+          </button>
+          <button
+            type="button"
+            aria-pressed={method === 'transfer'}
+            className={method === 'transfer' ? 'selected' : ''}
+            onClick={() => setMethod('transfer')}
+          >
+            Transferencia
+          </button>
+        </div>
+      )}
+      {onAccount ? (
+        <p className="warning">
+          La compra se sumará a la cuenta del cliente. No se registrará como cobrada.
+        </p>
+      ) : method === 'cash' ? (
         <>
           <label>
             Efectivo recibido ($)
@@ -91,14 +109,16 @@ export function CashPayment({ total, busy, onConfirm, people = [] }) {
       )}
       <CustomerPicker people={people} value={buyer} onChange={setBuyer} busy={busy} />
       <p className="hint">
-        Confirma solo cuando recibas el dinero. Es un registro manual, no un cobro con tarjeta.
+        {onAccount
+          ? 'La deuda se suma a los cargos anteriores. Podrás registrar el pago desde Deudores.'
+          : 'Confirma solo cuando recibas el dinero. Es un registro manual, no un cobro con tarjeta.'}
       </p>
       <button
         type="submit"
         className="green full"
-        disabled={busy || !hasBuyer || (method === 'cash' && !cash)}
+        disabled={busy || !hasBuyer || (!onAccount && method === 'cash' && !cash)}
       >
-        {busy ? 'Guardando…' : 'Confirmar cobro'}
+        {busy ? 'Guardando…' : onAccount ? 'Agregar compra a la cuenta' : 'Confirmar cobro'}
       </button>
     </form>
   );

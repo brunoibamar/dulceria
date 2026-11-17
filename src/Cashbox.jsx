@@ -39,27 +39,36 @@ export default function Cashbox({ data, busy, onOpen }) {
       )}
       <div className="cards">
         <section className="panel">
-          <h2>Entradas y salidas fuera de ventas</h2>
+          <h2>Traspaso de transferencia a efectivo</h2>
           <p>
-            Si agregas cambio o sacas efectivo para llevarlo al banco, regístralo aquí. No se
-            considera venta, gasto ni ganancia. No repitas un retiro, gasto o compra que ya
-            registraste en Ganancias.
+            Si retiraste dinero del banco y ahora lo tienes físicamente en caja, regístralo aquí.
+            Baja transferencia y sube efectivo por el mismo importe, sin crear una venta o gasto.
           </p>
           <button
             className="outline full"
             disabled={busy}
             onClick={() => onOpen({ type: 'cashAdjustment', operationId: uid() })}
           >
-            Registrar entrada / salida de efectivo
+            Pasar dinero a caja física
           </button>
         </section>
         <section className="panel">
-          <h2>Transferencias del negocio</h2>
-          <h2 className="big">{money(s.transferNet)}</h2>
+          <h2>Dinero del negocio</h2>
+          <div className="row line">
+            <span>Efectivo en caja</span>
+            <b>{s.expected === null ? 'Sin conteo inicial' : money(s.expected)}</b>
+          </div>
+          <div className="row line">
+            <span>En cuenta por transferencia</span>
+            <b>{money(s.transferNet)}</b>
+          </div>
+          <small>TOTAL REGISTRADO</small>
+          <h2 className="big">
+            {s.expected === null ? 'Conteo pendiente' : money(s.expected + s.transferNet)}
+          </h2>
           <p>
-            Neto registrado de cobros por transferencia menos gastos, compras y retiros de esa
-            cuenta. No es tu saldo bancario real: no incluye un saldo inicial ni otros movimientos
-            del banco.
+            El total incluye ambos apartados. El saldo de transferencia es el neto registrado por la
+            app y no incluye saldo inicial ni otros movimientos del banco.
           </p>
           <p>
             Cobrar por transferencia no convierte toda la venta en ganancia personal. Para apartar
@@ -90,7 +99,7 @@ export default function Cashbox({ data, busy, onOpen }) {
         {!box.counts.length && <p>No hay conteos todavía.</p>}
       </section>
       <section className="panel">
-        <h2>Entradas y salidas registradas</h2>
+        <h2>Movimientos de caja</h2>
         {[...box.adjustments]
           .reverse()
           .slice(0, 30)
@@ -101,7 +110,11 @@ export default function Cashbox({ data, busy, onOpen }) {
                 <small>{date(a.at)}</small>
               </span>
               <b>
-                {a.direction === 'in' ? '+' : '−'}
+                {a.direction === 'transferToCash'
+                  ? 'Traspaso a efectivo · '
+                  : a.direction === 'in'
+                    ? '+'
+                    : '−'}
                 {money(a.amount)}
               </b>
             </div>
@@ -209,9 +222,10 @@ export function CashAdjustmentForm({ busy, onConfirm }) {
     >
       <label>
         Movimiento
-        <select name="direction">
-          <option value="in">Entrada de efectivo / fondo para cambio</option>
-          <option value="out">Salida de efectivo / depósito al banco</option>
+        <select name="direction" defaultValue="transferToCash">
+          <option value="transferToCash">Pasé dinero del banco a caja física</option>
+          <option value="in">Agregar efectivo inicial / fondo para cambio</option>
+          <option value="out">Sacar efectivo de caja / depositar al banco</option>
         </select>
       </label>
       <label>
@@ -223,11 +237,11 @@ export function CashAdjustmentForm({ busy, onConfirm }) {
         <input name="note" maxLength={500} required />
       </label>
       <p className="hint">
-        Solo ajusta el efectivo esperado. No genera ingreso, gasto ni retiro personal. Los cobros y
-        los movimientos de Ganancias ya afectan la caja: no los repitas aquí.
+        El traspaso resta el importe de transferencia y lo suma al efectivo. No crea una venta,
+        gasto ni ganancia. Registra aquí solo movimientos físicos que aún no estén anotados.
       </p>
       <button className="primary full" disabled={busy}>
-        Registrar movimiento de efectivo
+        Guardar movimiento
       </button>
     </form>
   );

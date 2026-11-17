@@ -21,7 +21,7 @@ export function cashFlows(d) {
   for (const a of cashData(d).adjustments)
     flows.push({
       id: `cash:${a.id}`,
-      amount: a.direction === 'in' ? a.amount : -a.amount,
+      amount: a.direction === 'out' ? -a.amount : a.amount,
       method: 'cash',
     });
   return flows;
@@ -39,7 +39,11 @@ export function cashSummary(d) {
     last,
     expected,
     unknown: since.filter((f) => f.method === 'unknown').reduce((n, f) => n + (f.count || 1), 0),
-    transferNet: flows.filter((f) => f.method === 'transfer').reduce((n, f) => n + f.amount, 0),
+    transferNet:
+      flows.filter((f) => f.method === 'transfer').reduce((n, f) => n + f.amount, 0) -
+      box.adjustments
+        .filter((a) => a.direction === 'transferToCash')
+        .reduce((n, a) => n + a.amount, 0),
   };
 }
 export function recordCashCount(d, { id, at, counted, note = '' }) {
@@ -67,11 +71,13 @@ export function recordCashAdjustment(d, { id, at, amount, direction, note }) {
     !Number.isSafeInteger(amount) ||
     amount <= 0 ||
     amount > 1e10 ||
-    !['in', 'out'].includes(direction) ||
+    !['in', 'out', 'transferToCash'].includes(direction) ||
     !note.trim()
   )
     throw Error('Revisa el importe, la entrada o salida y el motivo.');
   const box = cashData(d);
+  if (direction === 'transferToCash' && amount > cashSummary(d).transferNet)
+    throw Error('El importe supera la transferencia registrada disponible.');
   if (box.adjustments.some((a) => a.id === id))
     throw Error('Este movimiento de caja ya está registrado.');
   box.adjustments.push({ id, at, amount, direction, note: note.trim().slice(0, 500) });
@@ -113,7 +119,7 @@ export function validateCashbox(d, ids) {
       !Number.isSafeInteger(a.amount) ||
       a.amount <= 0 ||
       a.amount > 1e10 ||
-      !['in', 'out'].includes(a.direction) ||
+      !['in', 'out', 'transferToCash'].includes(a.direction) ||
       !a.note.trim()
     )
       throw Error('Movimiento de caja inválido.');
