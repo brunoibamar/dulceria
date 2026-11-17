@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { cents, money, uid } from './domain.js';
 import { businessSummary, financeData } from './finance.js';
+import { cashSummary } from './cashbox.js';
 import { date } from './HistoryList';
 
-export default function Finance({ data, busy, onOpen }) {
+export default function Finance({ data, busy, onOpen, onGo }) {
   const summary = businessSummary(data),
-    ledger = financeData(data);
+    ledger = financeData(data),
+    cash = cashSummary(data),
+    currentFunds =
+      cash.expected === null || cash.unknown > 0 || !cash.lastTransferCount
+        ? null
+        : cash.expected + cash.transferNet,
+    investable = currentFunds === null ? null : Math.max(0, currentFunds - summary.available),
+    ownerFundsShortfall =
+      currentFunds === null ? null : Math.max(0, summary.available - currentFunds);
   const entries = [
     ...ledger.withdrawals.map((w) => ({
       ...w,
@@ -37,7 +46,8 @@ export default function Finance({ data, busy, onOpen }) {
           <h2 className="big mint">{money(summary.available)}</h2>
           <p>
             Ganancia ya cobrada, con costos confirmados, menos gastos, consumos personales y
-            retiros. Reinvertir en mercancía no reduce este acumulado.
+            retiros. Aunque uses todo el efectivo en mercancía, este apartado se conserva y sigue
+            creciendo; las compras para resurtir no lo reducen.
           </p>
         </div>
         <button
@@ -69,25 +79,45 @@ export default function Finance({ data, busy, onOpen }) {
         aumentando. Un retiro parcial descuenta solo ese importe; retirar todo deja el apartado en
         cero. El historial nunca se borra.
       </p>
-      <p className="hint">
-        Este apartado no equivale al efectivo en caja: parte puede estar invertida en mercancía.
-        Revisa Caja antes de separar dinero para ti.
-      </p>
       <div className="cards">
-        <section className="panel">
-          <small>RESERVA DEL NEGOCIO PENDIENTE DE RECUPERAR</small>
-          <h2 className="big">{money(summary.reserve)}</h2>
+        <section className="panel investment-balance">
+          <small>DINERO LÍQUIDO DISPONIBLE PARA INVERTIR</small>
+          <h2 className="big mint">
+            {investable === null ? 'Cuenta efectivo y tarjeta' : money(investable)}
+          </h2>
           <p>
-            Es un cálculo contable de costos aún no recuperados. Ya descuenta las compras de
-            mercancía registradas; no es el efectivo en caja ni dinero libre para otra compra.
+            Se calcula con el efectivo y la tarjeta/transferencia contados, menos tu ganancia
+            acumulada para ti. Así el dinero que no has retirado sigue apartado y no se cuenta dos
+            veces como fondo para compras. El cálculo aparece después de un conteo conjunto real; la
+            transferencia histórica sola no demuestra cuánto hay hoy en el banco.
           </p>
-          {summary.uncosted > 0 && (
+          {currentFunds !== null && (
+            <>
+              <div className="row line">
+                <span>Dinero contado en caja + tarjeta</span>
+                <b>{money(currentFunds)}</b>
+              </div>
+              <div className="row line">
+                <span>Apartado para ti, pendiente de retiro</span>
+                <b>{money(summary.available)}</b>
+              </div>
+            </>
+          )}
+          {ownerFundsShortfall > 0 && (
             <p className="warning">
-              Hay {money(summary.uncosted)} cobrados sin costo confirmado o con costo estimado. Se
-              mantienen dentro del negocio y no se habilitan como ganancia para retirar; este total
-              es distinto de la reserva que queda después de registrar reinversiones.
+              El apartado para ti supera el dinero contado por {money(ownerFundsShortfall)}. No hay
+              efectivo libre para invertir ahora, pero tu ganancia acumulada se conserva.
             </p>
           )}
+          {currentFunds === null && (
+            <button className="outline full" disabled={busy} onClick={() => onGo?.('caja')}>
+              Contar efectivo y tarjeta
+            </button>
+          )}
+          <div className="row line">
+            <span>Compras para resurtir registradas · histórico</span>
+            <b>{money(summary.reinvested)}</b>
+          </div>
           <button
             className="outline full"
             disabled={busy}
@@ -98,6 +128,22 @@ export default function Finance({ data, busy, onOpen }) {
             Registrar compra o gasto del negocio
           </button>
         </section>
+        <details className="panel finance-reserve">
+          <summary>Reserva contable pendiente de recuperar · {money(summary.reserve)}</summary>
+          <p>
+            Este cálculo no es efectivo ni dinero libre para comprar. Muestra costos de mercancía y
+            ventas sin costo confirmado que siguen dentro del negocio, después de descontar las
+            compras para resurtir registradas. No se suma ni se resta otra vez al disponible para
+            invertir.
+          </p>
+          {summary.uncosted > 0 && (
+            <p className="warning">
+              Hay {money(summary.uncosted)} cobrados sin costo confirmado o con costo estimado. Se
+              mantienen dentro del negocio y no se habilitan como ganancia para retirar. Este total
+              es distinto de la reserva contable.
+            </p>
+          )}
+        </details>
         <section className="panel">
           <small>GANANCIA BRUTA HISTÓRICA CONFIRMADA</small>
           <h2 className="big">{money(summary.gross)}</h2>

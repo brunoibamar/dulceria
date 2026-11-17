@@ -100,8 +100,13 @@ export function recordCashAdjustment(d, { id, at, amount, direction, note }) {
   )
     throw Error('Revisa el importe, la entrada o salida y el motivo.');
   const box = cashData(d);
-  if (direction === 'transferToCash' && amount > cashSummary(d).transferNet)
-    throw Error('El importe supera la transferencia registrada disponible.');
+  if (direction === 'transferToCash') {
+    const summary = cashSummary(d);
+    if (!summary.lastTransferCount)
+      throw Error('Primero cuenta el efectivo y el saldo actual de tarjeta en Caja.');
+    if (amount > summary.transferNet)
+      throw Error('El importe supera la transferencia registrada disponible.');
+  }
   if (box.adjustments.some((a) => a.id === id))
     throw Error('Este movimiento de caja ya está registrado.');
   box.adjustments.push({ id, at, amount, direction, note: note.trim().slice(0, 500) });

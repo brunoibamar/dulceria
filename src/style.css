@@ -935,6 +935,12 @@ footer span {
 .finance-method {
   margin: 22px 0;
 }
+.finance-reserve summary {
+  cursor: pointer;
+  color: #d3bce6;
+  font-weight: 700;
+  line-height: 1.6;
+}
 @media (max-width: 780px) {
   .finance-balance .big {
     font-size: 36px !important;

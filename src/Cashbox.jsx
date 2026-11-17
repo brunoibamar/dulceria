@@ -12,14 +12,14 @@ export default function Cashbox({ data, busy, onOpen }) {
       </p>
       <div className="banner">
         <div>
-          <small>EFECTIVO ESPERADO DESDE EL ÚLTIMO CONTEO</small>
+          <small>EFECTIVO FÍSICO ESPERADO</small>
           <h2 className="big mint">
             {s.expected === null ? 'Sin base inicial' : money(s.expected)}
           </h2>
           <p>
             {s.last
               ? `Base: ${money(s.last.counted)} contados el ${date(s.last.at)}`
-              : 'El primer conteo establece tu efectivo inicial; no inventa ventas ni ganancias.'}
+              : 'El conteo establece tu efectivo inicial; no inventa ventas ni ganancias.'}
           </p>
         </div>
         <button
@@ -27,7 +27,9 @@ export default function Cashbox({ data, busy, onOpen }) {
           disabled={busy}
           onClick={() => onOpen({ type: 'cashCount', operationId: uid() })}
         >
-          {s.last ? 'Contar caja física' : 'Registrar primer conteo'}
+          {s.last && s.lastTransferCount
+            ? 'Contar efectivo y tarjeta'
+            : 'Registrar efectivo y tarjeta'}
         </button>
       </div>
       {s.unknown > 0 && (
@@ -41,12 +43,12 @@ export default function Cashbox({ data, busy, onOpen }) {
         <section className="panel">
           <h2>Movimiento entre banco y efectivo</h2>
           <p>
-            Para conciliar ambos saldos reales, usa Contar caja física arriba. Este movimiento sirve
-            para registrar un traspaso entre conteos; no crea una venta o gasto.
+            Para conciliar ambos saldos reales, usa Contar caja física arriba. Después del primer
+            conteo puedes registrar un traspaso entre conteos; no crea una venta o gasto.
           </p>
           <button
             className="outline full"
-            disabled={busy}
+            disabled={busy || !s.lastTransferCount}
             onClick={() => onOpen({ type: 'cashAdjustment', operationId: uid() })}
           >
             Registrar traspaso manual
@@ -60,15 +62,18 @@ export default function Cashbox({ data, busy, onOpen }) {
           </div>
           <div className="row line">
             <span>En cuenta por transferencia</span>
-            <b>{money(s.transferNet)}</b>
+            <b>{s.lastTransferCount ? money(s.transferNet) : 'Pendiente de conteo'}</b>
           </div>
           <small>TOTAL REGISTRADO</small>
           <h2 className="big">
-            {s.expected === null ? 'Conteo pendiente' : money(s.expected + s.transferNet)}
+            {s.expected === null || !s.lastTransferCount
+              ? 'Haz un conteo conjunto'
+              : money(s.expected + s.transferNet)}
           </h2>
           <p>
-            El total suma los últimos importes registrados para efectivo y tarjeta/transferencia. En
-            el primer conteo de tarjeta se establece el saldo base que escribas.
+            {s.lastTransferCount
+              ? 'El total suma los últimos importes registrados para efectivo y tarjeta/transferencia.'
+              : 'Las transferencias antiguas no muestran el saldo real de tu banco. Anota el efectivo y el saldo actual de tarjeta para establecer ambas bases sin duplicar dinero.'}
           </p>
           <p>
             Cobrar por transferencia no convierte toda la venta en ganancia personal. Para apartar

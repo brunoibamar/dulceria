@@ -966,7 +966,7 @@ function App() {
         )}
 
         {tab === 'dashboard' && <Dashboard data={data} onVoid={openVoid} />}
-        {tab === 'ganancias' && <Finance data={data} busy={busy} onOpen={openModal} />}
+        {tab === 'ganancias' && <Finance data={data} busy={busy} onOpen={openModal} onGo={go} />}
         {tab === 'caja' && <Cashbox data={data} busy={busy} onOpen={openModal} />}
         {tab === 'respaldo' && (
           <Backup

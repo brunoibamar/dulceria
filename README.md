@@ -12,7 +12,7 @@ Puedes escribir el efectivo total o contar billetes y monedas (MXN, desde $0.50 
 
 Los cobros antiguos sin método no se adivinan como efectivo. Si hay movimientos sin clasificar desde la base, la comparación se marca incompleta y no se presenta una diferencia como comprobada. El primer conteo permite empezar con tus cantidades actuales sin rehacer todo el historial. Los cobros anteriores que incluyen efectivo recibido y cambio sí se reconocen como efectivo.
 
-Las entradas y salidas manuales de Caja son para fondo de cambio, depósitos u otros movimientos que no sean ventas ni gastos. No repitas allí los movimientos ya registrados en Ganancias. El neto de transferencias mostrado no es un saldo bancario real: no tiene saldo inicial ni los demás movimientos de tu banco.
+Las entradas y salidas manuales de Caja son para movimientos que no sean ventas ni gastos. No repitas allí los movimientos ya registrados en Ganancias. El primer conteo conjunto establece el saldo real actual de tarjeta/transferencia; después se calculan los movimientos registrados en la app. Vuelve a contar si hubo otros movimientos bancarios que no anotaste aquí.
 
 Respaldo JSON incluye `finance.consumptions` y el campo opcional `cashbox` con sus conteos y movimientos. Se mantiene el esquema 1 y compatibilidad con copias anteriores. La futura conexión con Economía sigue exportando únicamente retiros personales, no ventas, consumos, conteos o diferencias.
 
@@ -31,6 +31,8 @@ El disponible se calcula sobre todo el historial registrado:
 - **Registrar uso de reinversión** descuenta compras para resurtir de la reserva y del dinero del negocio, sin reducir el apartado para ti, incluso cuando la compra supera la reserva. No registres la misma compra también como gasto. El stock y el costo por pieza se actualizan aparte, desde Inventario.
 
 El apartado para ti es ganancia acumulada pendiente de retiro, no efectivo disponible: parte puede estar invertida en mercancía. Consulta Caja y tu cuenta antes de retirar. Por ejemplo, si cobras $680 con un costo confirmado de $400, acumulas $280 para ti. Reinvertir $514 deja $166 del cobro en dinero, pero conserva los $280 acumulados. Solo al registrar un retiro se descuenta ese importe del apartado. Este cálculo también aplica a compras anteriores y a saldos conservados por cierres mensuales; no requiere borrar ni volver a registrar movimientos.
+
+Ganancias también muestra el **dinero líquido disponible para invertir**: último efectivo contado + saldo contado de tarjeta/transferencia − apartado para ti pendiente de retiro. Las compras de resurtido reducen el dinero líquido, pero no la ganancia para ti; las ventas futuras la siguen aumentando. Si falta un conteo completo o hay movimientos sin método, la app pide contar antes de estimar el dinero libre. La reserva contable pendiente de recuperar se muestra aparte y no se vuelve a sumar como efectivo.
 
 Ejemplo: cobras $900 por mercancía que costó $600 → $300 disponibles y $600 reservados. Retiras $300 → $0 disponibles, $600 reservados y un retiro de $300 conservado en el historial. La cifra histórica de ganancia permanece en $300.
 
