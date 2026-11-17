@@ -57,13 +57,13 @@ export function cashSummary(d) {
   };
 }
 export function recordCashCount(d, { id, at, counted, countedTransfer, note = '' }) {
+  const includeTransfer = countedTransfer !== undefined;
   if (
     !Number.isSafeInteger(counted) ||
     counted < 0 ||
     counted > 1e10 ||
-    !Number.isSafeInteger(countedTransfer) ||
-    countedTransfer < 0 ||
-    countedTransfer > 1e10
+    (includeTransfer &&
+      (!Number.isSafeInteger(countedTransfer) || countedTransfer < 0 || countedTransfer > 1e10))
   )
     throw Error('Indica cantidades válidas para el efectivo y la transferencia.');
   const box = cashData(d);
@@ -71,22 +71,26 @@ export function recordCashCount(d, { id, at, counted, countedTransfer, note = ''
   const s = cashSummary(d),
     expected = s.unknown ? null : s.expected,
     expectedTransfer = s.lastTransferCount ? s.transferNet : null;
-  box.counts.push({
+  const count = {
     id,
     at,
     counted,
-    countedTransfer,
     expected,
     difference: expected === null ? null : counted - expected,
-    expectedTransfer,
-    transferDifference: expectedTransfer === null ? null : countedTransfer - expectedTransfer,
     note: note.trim().slice(0, 500),
     seenIds: cashFlows(d).map((f) => f.id),
-    seenTransferIds: cashFlows(d)
-      .filter((f) => f.method === 'transfer')
-      .map((f) => f.id),
     unclassified: s.unknown,
-  });
+  };
+  if (includeTransfer)
+    Object.assign(count, {
+      countedTransfer,
+      expectedTransfer,
+      transferDifference: expectedTransfer === null ? null : countedTransfer - expectedTransfer,
+      seenTransferIds: cashFlows(d)
+        .filter((f) => f.method === 'transfer')
+        .map((f) => f.id),
+    });
+  box.counts.push(count);
   d.cashbox = box;
   return d;
 }
