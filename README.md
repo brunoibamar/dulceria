@@ -6,9 +6,9 @@ En **Ganancias → Registrar consumo personal de mercancía**, elige producto y 
 
 Ventas de contado y abonos permiten elegir **Efectivo** o **Transferencia**. El efectivo usa el cálculo de cambio; la transferencia requiere que tú confirmes su recepción y no genera cambio ni efectivo en caja. Los gastos y compras también indican si se pagaron con efectivo o desde la cuenta. Un retiro para ti en efectivo se descuenta de caja; uno destinado a tarjeta afecta el neto de transferencias registrado. Recibir una transferencia no convierte toda esa venta en ganancia personal: su costo sigue reservado para el negocio.
 
-En **Caja**, el primer conteo guarda el efectivo real como base inicial. Después se calcula: último efectivo contado + ventas y abonos en efectivo − gastos/compras/retiros en efectivo + entradas manuales − salidas manuales. No se usa el efectivo recibido antes del cambio: se registra solo el importe neto de la venta.
+En **Caja**, cada conteo registra en un solo formulario el efectivo físico y el saldo actual de tarjeta/transferencia. Cada cantidad pasa a ser la nueva base de su apartado; los movimientos posteriores se suman o restan por método. El primer saldo de tarjeta se toma como base porque la app no conoce saldos bancarios anteriores.
 
-Puedes escribir el total o contar billetes y monedas (MXN, desde $0.50 hasta $1,000). Se conserva cuánto se esperaba, cuánto contaste y el faltante o sobrante. **Un conteo no modifica ventas, ganancias ni genera gastos automáticamente.** El efectivo que contaste pasa a ser la base del siguiente conteo, manteniendo la diferencia anterior visible en el historial.
+Puedes escribir el efectivo total o contar billetes y monedas (MXN, desde $0.50 hasta $1,000), además de anotar el saldo de tarjeta/transferencia. Se conserva cuánto se esperaba, cuánto contaste y la diferencia por apartado. **Un conteo no modifica ventas, ganancias ni genera gastos automáticamente.**
 
 Los cobros antiguos sin método no se adivinan como efectivo. Si hay movimientos sin clasificar desde la base, la comparación se marca incompleta y no se presenta una diferencia como comprobada. El primer conteo permite empezar con tus cantidades actuales sin rehacer todo el historial. Los cobros anteriores que incluyen efectivo recibido y cambio sí se reconocen como efectivo.
 
@@ -67,7 +67,7 @@ Crea la persona con nombre, teléfono y notas. Su cuenta empieza en cero. **Agre
 
 Toca el nombre para ver su historial o mantenlo presionado **dos segundos** para abrir opciones. El botón **⋮** hace lo mismo y permite usar teclado. Mover el dedo o desplazar la pantalla cancela la pulsación prolongada.
 
-Puedes editar nombre, teléfono y notas sin cambiar el saldo ni los movimientos. **Archivar cliente** lo oculta de las cuentas activas y de nuevos cargos; conserva el historial y la deuda. Desde el filtro Archivados puedes abonar, editar y reactivar. El saldo total por cobrar incluye cuentas archivadas.
+Puedes editar nombre, teléfono y notas sin cambiar el saldo ni los movimientos. **Eliminar de Deudores** quita la cuenta de activas; si conserva saldo o historial, queda archivada para poder consultar sus movimientos o registrar abonos. Una cuenta sin movimientos se borra definitivamente. Desde el filtro Archivados puedes abonar, editar y reactivar. El saldo total por cobrar incluye cuentas archivadas.
 
 Las búsquedas de nombres y productos ignoran mayúsculas y acentos.
 
@@ -106,7 +106,6 @@ Elige Hoy, últimos 7 días (incluye hoy), mes actual o todo el historial. Se us
 - Gráfica semanal con alternativa en cifras; promedio por venta, cuentas con mayor saldo, búsquedas e historial con carga progresiva. Toca una operación para ver su detalle, suma capturada o piezas y, cuando corresponda, efectivo y cambio.
 
 ## Respaldo y recuperación
-
 
 **Consultar reporte mensual:** al inicio de Respaldo, selecciona mes y pulsa **Ver reporte del mes**. El mes actual y los meses no cerrados se calculan desde los registros locales; no necesitas esperar al cierre para consultarlos. Un mes sin ventas muestra esa situación explícitamente. Para meses cerrados, se usa la carpeta recordada del cierre, solicitando lectura si el navegador revocó el permiso. El reporte aparece dentro de la aplicación y **Descargar este reporte** guarda el mismo informe mostrado.
 

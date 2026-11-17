@@ -18,12 +18,15 @@ export function cashFlows(d) {
     });
   for (const m of d.finance?.movements || [])
     flows.push({ id: `movement:${m.id}`, amount: -m.amount, method: m.method || 'unknown' });
-  for (const a of cashData(d).adjustments)
+  for (const a of cashData(d).adjustments) {
     flows.push({
       id: `cash:${a.id}`,
       amount: a.direction === 'out' ? -a.amount : a.amount,
       method: 'cash',
     });
+    if (a.direction === 'transferToCash')
+      flows.push({ id: `transfer:${a.id}`, amount: -a.amount, method: 'transfer' });
+  }
   return flows;
 }
 export function cashSummary(d) {
@@ -35,32 +38,53 @@ export function cashSummary(d) {
   const expected = last
     ? last.counted + since.filter((f) => f.method === 'cash').reduce((n, f) => n + f.amount, 0)
     : null;
+  const lastTransferCount = [...box.counts]
+    .reverse()
+    .find((c) => Number.isSafeInteger(c.countedTransfer));
+  const transferFlows = flows.filter((f) => f.method === 'transfer');
+  const transferSince = lastTransferCount
+    ? transferFlows.filter((f) => !(lastTransferCount.seenTransferIds || []).includes(f.id))
+    : transferFlows;
+  const transferNet = lastTransferCount
+    ? lastTransferCount.countedTransfer + transferSince.reduce((n, f) => n + f.amount, 0)
+    : transferFlows.reduce((n, f) => n + f.amount, 0);
   return {
     last,
     expected,
     unknown: since.filter((f) => f.method === 'unknown').reduce((n, f) => n + (f.count || 1), 0),
-    transferNet:
-      flows.filter((f) => f.method === 'transfer').reduce((n, f) => n + f.amount, 0) -
-      box.adjustments
-        .filter((a) => a.direction === 'transferToCash')
-        .reduce((n, a) => n + a.amount, 0),
+    transferNet,
+    lastTransferCount,
   };
 }
-export function recordCashCount(d, { id, at, counted, note = '' }) {
-  if (!Number.isSafeInteger(counted) || counted < 0 || counted > 1e10)
-    throw Error('Indica un total contado válido, de cero o más.');
+export function recordCashCount(d, { id, at, counted, countedTransfer, note = '' }) {
+  if (
+    !Number.isSafeInteger(counted) ||
+    counted < 0 ||
+    counted > 1e10 ||
+    !Number.isSafeInteger(countedTransfer) ||
+    countedTransfer < 0 ||
+    countedTransfer > 1e10
+  )
+    throw Error('Indica cantidades válidas para el efectivo y la transferencia.');
   const box = cashData(d);
   if (box.counts.some((c) => c.id === id)) throw Error('Este conteo ya está registrado.');
   const s = cashSummary(d),
-    expected = s.unknown ? null : s.expected;
+    expected = s.unknown ? null : s.expected,
+    expectedTransfer = s.lastTransferCount ? s.transferNet : null;
   box.counts.push({
     id,
     at,
     counted,
+    countedTransfer,
     expected,
     difference: expected === null ? null : counted - expected,
+    expectedTransfer,
+    transferDifference: expectedTransfer === null ? null : countedTransfer - expectedTransfer,
     note: note.trim().slice(0, 500),
     seenIds: cashFlows(d).map((f) => f.id),
+    seenTransferIds: cashFlows(d)
+      .filter((f) => f.method === 'transfer')
+      .map((f) => f.id),
     unclassified: s.unknown,
   });
   d.cashbox = box;
@@ -114,6 +138,18 @@ export function validateCashbox(d, ids) {
       c.unclassified < 0
     )
       throw Error('Conteo inválido.');
+    else if (
+      c.countedTransfer !== undefined &&
+      (!Number.isSafeInteger(c.countedTransfer) ||
+        c.countedTransfer < 0 ||
+        c.countedTransfer > 1e10 ||
+        !(c.expectedTransfer === null || Number.isSafeInteger(c.expectedTransfer)) ||
+        c.transferDifference !==
+          (c.expectedTransfer === null ? null : c.countedTransfer - c.expectedTransfer) ||
+        !Array.isArray(c.seenTransferIds) ||
+        !c.seenTransferIds.every((id) => typeof id === 'string'))
+    )
+      throw Error('Conteo de transferencia inválido.');
   for (const a of b.adjustments)
     if (
       !Number.isSafeInteger(a.amount) ||

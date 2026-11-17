@@ -1012,47 +1012,71 @@ function App() {
                   disabled={busy}
                   onClick={async () => {
                     if (
-                      await commit(
-                        (d) => archivePerson(d, currentPerson.id, !currentPerson.archived),
-                        currentPerson.archived
-                          ? 'Cuenta reactivada'
-                          : 'Cuenta archivada; su saldo e historial se conservan'
-                      )
+                      currentPerson.archived &&
+                      (await commit(
+                        (d) => archivePerson(d, currentPerson.id, false),
+                        'Cuenta reactivada'
+                      ))
                     )
                       setModal(null);
                   }}
+                  hidden={!currentPerson.archived}
                 >
-                  {currentPerson.archived ? 'Reactivar cliente' : 'Archivar cliente'}
+                  Reactivar cliente
                 </button>
                 <button
                   className="danger full"
-                  disabled={busy || debt(currentPerson.id) !== 0 || personHasHistory(currentPerson.id)}
+                  disabled={busy || currentPerson.archived}
                   onClick={() => openModal({ type: 'deletePerson', person: currentPerson })}
+                  hidden={currentPerson.archived}
                 >
-                  Eliminar cuenta sin movimientos
+                  Eliminar de Deudores
                 </button>
               </div>
               <p className="hint">
-                Archivar lo oculta de las cuentas activas. Su saldo sigue en el total y puedes
-                abonar desde Archivados. Solo se puede eliminar definitivamente una cuenta sin
-                ventas ni abonos; el historial se conserva al archivarla.
+                Si tiene saldo o movimientos, al eliminarla se archivará para conservar el
+                historial. Podrás consultarla y registrar abonos desde Archivados. Una cuenta sin
+                movimientos sí se elimina definitivamente.
               </p>
             </>
           ) : modal.type === 'deletePerson' ? (
             <div className="stack">
               <p>
-                ¿Eliminar a <b>{currentPerson.name}</b>? Esta cuenta no tiene movimientos. La acción
-                no se puede deshacer.
+                {personHasHistory(currentPerson.id) || debt(currentPerson.id) !== 0 ? (
+                  <>
+                    <b>{currentPerson.name}</b> tiene saldo o movimientos. Se quitará de las cuentas
+                    activas y se conservará en Archivados para no perder su historial ni su deuda.
+                  </>
+                ) : (
+                  <>
+                    ¿Eliminar a <b>{currentPerson.name}</b>? Esta cuenta no tiene movimientos y se
+                    borrará definitivamente.
+                  </>
+                )}
               </p>
               <button
                 className="danger full"
-                disabled={busy || debt(currentPerson.id) !== 0 || personHasHistory(currentPerson.id)}
+                disabled={busy}
                 onClick={async () => {
-                  if (await commit((d) => deletePerson(d, currentPerson.id), 'Cuenta eliminada'))
+                  const mustArchive =
+                    personHasHistory(currentPerson.id) || debt(currentPerson.id) !== 0;
+                  if (
+                    await commit(
+                      (d) =>
+                        mustArchive
+                          ? archivePerson(d, currentPerson.id, true)
+                          : deletePerson(d, currentPerson.id),
+                      mustArchive
+                        ? 'Cuenta eliminada de Deudores activos y guardada en Archivados'
+                        : 'Cuenta eliminada definitivamente'
+                    )
+                  )
                     setModal(null);
                 }}
               >
-                Sí, eliminar cuenta
+                {personHasHistory(currentPerson.id) || debt(currentPerson.id) !== 0
+                  ? 'Eliminar de activas y conservar en Archivados'
+                  : 'Sí, eliminar definitivamente'}
               </button>
               <button
                 className="outline full"

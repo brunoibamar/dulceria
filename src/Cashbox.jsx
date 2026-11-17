@@ -8,7 +8,7 @@ export default function Cashbox({ data, busy, onOpen }) {
   return (
     <>
       <p className="intro">
-        Cuenta el efectivo real y compáralo con los movimientos de tu negocio.
+        Cuenta por separado el efectivo físico y el saldo de tarjeta/transferencia.
       </p>
       <div className="banner">
         <div>
@@ -39,17 +39,17 @@ export default function Cashbox({ data, busy, onOpen }) {
       )}
       <div className="cards">
         <section className="panel">
-          <h2>Traspaso de transferencia a efectivo</h2>
+          <h2>Movimiento entre banco y efectivo</h2>
           <p>
-            Si retiraste dinero del banco y ahora lo tienes físicamente en caja, regístralo aquí.
-            Baja transferencia y sube efectivo por el mismo importe, sin crear una venta o gasto.
+            Para conciliar ambos saldos reales, usa Contar caja física arriba. Este movimiento sirve
+            para registrar un traspaso entre conteos; no crea una venta o gasto.
           </p>
           <button
             className="outline full"
             disabled={busy}
             onClick={() => onOpen({ type: 'cashAdjustment', operationId: uid() })}
           >
-            Pasar dinero a caja física
+            Registrar traspaso manual
           </button>
         </section>
         <section className="panel">
@@ -67,8 +67,8 @@ export default function Cashbox({ data, busy, onOpen }) {
             {s.expected === null ? 'Conteo pendiente' : money(s.expected + s.transferNet)}
           </h2>
           <p>
-            El total incluye ambos apartados. El saldo de transferencia es el neto registrado por la
-            app y no incluye saldo inicial ni otros movimientos del banco.
+            El total suma los últimos importes registrados para efectivo y tarjeta/transferencia. En
+            el primer conteo de tarjeta se establece el saldo base que escribas.
           </p>
           <p>
             Cobrar por transferencia no convierte toda la venta en ganancia personal. Para apartar
@@ -79,20 +79,28 @@ export default function Cashbox({ data, busy, onOpen }) {
       <section className="panel">
         <h2>Historial de conteos</h2>
         <p className="hint">
-          La diferencia se conserva. El efectivo contado es la nueva base para el siguiente conteo;
-          no modifica ganancias ni crea gastos automáticamente.
+          Cada conteo guarda el efectivo físico y el saldo de tarjeta/transferencia. Sus importes se
+          convierten en las nuevas bases; no modifican ganancias ni crean gastos.
         </p>
         {[...box.counts].reverse().map((c) => (
           <div className="line" key={c.id}>
             <div className="row">
               <b>{date(c.at)}</b>
-              <b>{money(c.counted)} contados</b>
+              <b>{money(c.counted)} efectivo</b>
             </div>
             <p>
               {c.expected === null
                 ? 'Base inicial o comparación sin método completo'
                 : `Esperado: ${money(c.expected)} · ${c.difference === 0 ? 'Caja exacta' : c.difference < 0 ? 'Faltan ' + money(-c.difference) : 'Sobran ' + money(c.difference)}`}
             </p>
+            {Number.isSafeInteger(c.countedTransfer) && (
+              <p>
+                {money(c.countedTransfer)} en tarjeta/transferencia
+                {c.expectedTransfer === null
+                  ? ' · primera base registrada'
+                  : ` · ${c.transferDifference === 0 ? 'coincide' : c.transferDifference < 0 ? 'faltan ' + money(-c.transferDifference) : 'sobran ' + money(c.transferDifference)} ${money(c.expectedTransfer)} esperados`}
+              </p>
+            )}
             {c.note && <small>{c.note}</small>}
           </div>
         ))}
@@ -128,26 +136,37 @@ const bills = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50]
 export function CashCountForm({ data, busy, onConfirm }) {
   const [mode, setMode] = useState('total'),
     [value, setValue] = useState(''),
-    [counts, setCounts] = useState({});
+    [counts, setCounts] = useState({}),
+    [transferValue, setTransferValue] = useState('');
   const s = cashSummary(data);
   let counted = null;
   try {
     counted =
       mode === 'total' ? cents(value) : bills.reduce((n, b) => n + b * (Number(counts[b]) || 0), 0);
   } catch {}
+  let countedTransfer = null;
+  try {
+    countedTransfer = cents(transferValue);
+  } catch {}
   const valid =
     counted !== null &&
     Number.isSafeInteger(counted) &&
     counted >= 0 &&
+    countedTransfer !== null &&
+    Number.isSafeInteger(countedTransfer) &&
+    countedTransfer >= 0 &&
     Object.values(counts).every((n) => Number.isSafeInteger(Number(n)) && Number(n) >= 0);
   const expected = s.unknown ? null : s.expected,
-    difference = valid && expected !== null ? counted - expected : null;
+    difference = valid && expected !== null ? counted - expected : null,
+    expectedTransfer = s.lastTransferCount ? s.transferNet : null,
+    transferDifference =
+      valid && expectedTransfer !== null ? countedTransfer - expectedTransfer : null;
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.currentTarget));
-        if (valid) onConfirm({ counted, note: f.note });
+        if (valid) onConfirm({ counted, countedTransfer, note: f.note });
       }}
     >
       <label>
@@ -159,7 +178,7 @@ export function CashCountForm({ data, busy, onConfirm }) {
       </label>
       {mode === 'total' ? (
         <label>
-          Total de efectivo contado ($)
+          Efectivo físico contado ($)
           <input
             type="number"
             inputMode="decimal"
@@ -189,13 +208,32 @@ export function CashCountForm({ data, busy, onConfirm }) {
           ))}
         </div>
       )}
+      <label>
+        Saldo actual de tarjeta / transferencia ($)
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={transferValue}
+          onChange={(e) => setTransferValue(e.target.value)}
+          required
+        />
+      </label>
       <div className="change">
-        <small>TOTAL CONTADO</small>
-        <strong>{valid ? money(counted) : 'Revisa el importe'}</strong>
+        <small>TOTAL DE EFECTIVO + TARJETA</small>
+        <strong>{valid ? money(counted + countedTransfer) : 'Revisa ambos importes'}</strong>
         <p>
+          Efectivo: {valid ? money(counted) : '—'} · Tarjeta/transferencia:{' '}
+          {valid ? money(countedTransfer) : '—'}
+          <br />
           {expected === null
-            ? 'Este conteo establecerá una nueva base sin inventar una diferencia.'
-            : `Esperado: ${money(expected)} · ${difference === null ? '' : difference === 0 ? 'Caja exacta' : difference < 0 ? 'Faltan ' + money(-difference) : 'Sobran ' + money(difference)}`}
+            ? 'El conteo establece la base física de efectivo.'
+            : `Efectivo esperado: ${money(expected)}${difference === null ? '' : ` · ${difference === 0 ? 'coincide' : difference < 0 ? 'faltan ' + money(-difference) : 'sobran ' + money(difference)}`}`}
+          <br />
+          {expectedTransfer === null
+            ? `Primera base de tarjeta; el saldo registrado anterior era ${money(s.transferNet)}.`
+            : `Tarjeta esperada: ${money(expectedTransfer)}${transferDifference === null ? '' : ` · ${transferDifference === 0 ? 'coincide' : transferDifference < 0 ? 'faltan ' + money(-transferDifference) : 'sobran ' + money(transferDifference)}`}`}
         </p>
       </div>
       <label>
@@ -203,11 +241,12 @@ export function CashCountForm({ data, busy, onConfirm }) {
         <input name="note" maxLength={500} placeholder="Ej. Cierre del día" />
       </label>
       <p className="hint">
-        Guarda el conteo y la diferencia. No convierte un faltante en gasto ni altera ventas o
-        ganancias.
+        Cuenta el efectivo físico y revisa el saldo real en tu banco. El primer saldo de
+        transferencia se usa como base; después la app calcula los movimientos nuevos. No altera
+        ventas ni ganancias.
       </p>
       <button className="green full" disabled={busy || !valid}>
-        Guardar conteo físico
+        Guardar conteo de efectivo y tarjeta
       </button>
     </form>
   );
